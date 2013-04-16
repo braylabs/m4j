@@ -1,0 +1,68 @@
+PARSER_BEGIN(MUMPS)
+
+/** Simple brace matcher. */
+public class MUMPS {
+
+  /** Main entry point. */
+  public static void main(String args[]) throws ParseException {
+    MUMPS parser = new MUMPS(System.in);
+    parser.Input();
+  }
+
+}
+
+PARSER_END(MUMPS)
+
+/*
+SKIP :
+{
+  " "
+| "\t"
+| "\n"
+| "\r"
+}
+*/
+
+TOKEN :
+{
+  <LBRACE: "{">
+| <RBRACE: "}">
+| <EOL: ("\n"|"\r"|"\r\n")+ >
+//| <LINE: (~["\n","\r"])+ <EOL>>
+}
+
+TOKEN : /* IDENTIFIERS */
+{
+  < IDENTIFIER: <LETTER> (<LETTER>|<DIGIT>)* >
+| < #LETTER: ["_","a"-"z","A"-"Z"] >
+| < DIGIT: ["0"-"9"] >
+}
+
+/** Root production. */
+void Input() :
+{ Token t;}
+{
+  ["Cache for Windows^INT^JSON Data Store 18Mar2013^~Format=Cache.S~^RAW" <EOL>]
+  //{System.out.println("PREAMBLE LINE1:" + t.image);}
+  ["%RO on 18 Mar 2013   5:40 PM" <EOL>]
+  //{System.out.println("PREAMBLE LINE2:" + t.image);}
+  (RoutineHeader())+
+}
+
+/* Example: VPRJ1^INT^1^62896,42379.382274^0 */
+String RoutineHeader() : 
+{ String name; }
+{
+  name=Identifier() "^INT^1^" (<DIGIT>)+ "," (<DIGIT>)+ "." (<DIGIT>)+ "^0" <EOL>
+  { System.out.println("RoutineHeaderName: " + name); return name; }
+}
+
+/** An Identifier. */
+String Identifier() :
+{
+  Token t;
+}
+{
+  t=<IDENTIFIER>
+  { return t.image; }
+}

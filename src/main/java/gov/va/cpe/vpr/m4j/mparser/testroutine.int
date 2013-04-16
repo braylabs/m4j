@@ -1,0 +1,156 @@
+Cache for Windows^INT^JSON Data Store 18Mar2013^~Format=Cache.S~^RAW
+%RO on 18 Mar 2013   5:40 PM
+VPRJ^INT^1^62896,42379.33251^0
+VPRJ ;SLC/KCM -- Menu for JSON data store utilities
+ ;;1.0;JSON DATA STORE;;Sep 01, 2012
+ ;
+ ; Menu to run various utilities for the JSON data store:  D ^VPRJ
+ ;
+MENU ; Allow utilities to be selected from a menu
+ G DOMENU^VPRJ1
+ ;
+START ; Start the HTTP listener
+ I $$STATUS^VPRJRCL="running" W !,"Listener is already running.",! Q
+ ;
+ W !,"Starting listener on port ",$$PORT^VPRJRCL
+ D GO^VPRJRCL
+ H 1
+ W !,"Listener status:  ",$$STATUS^VPRJRCL,!
+ Q
+STOP ; Stop the HTTP listener
+ N X
+ I $G(^VPRHTTP(0,"listener"))="stopped" W !,"Listener is already stopped.",! Q
+ D STOPW^VPRJRCL
+ Q
+WAIT ;
+ N I,X
+ S X=$$STATUS^VPRJRCL
+ W !,"Listener status: ",X
+ F I=1:1:12 Q:X="stopped"  D
+ . H 1
+ . S X=$$STATUS^VPRJRCL
+ . W "."
+ . I X="stopped" W X
+ Q
+PORT ; Change the listening port number
+ N PORT
+ W !,"Enter port number: "
+ R PORT:300 E  Q
+ I '$L(PORT) Q
+ I (PORT<1024)!(PORT>65000) W " ??" G PORT
+ D STOP
+ D SPORT^VPRJRCL(PORT)
+ D START
+ Q
+LOG ; Set the logging level
+ N X
+ W !,"Log level will be changed on the next connection.",!
+ W !,"0: no logging except errors"
+ W !,"1: log headers"
+ W !,"2: log raw request"
+ W !,"3: log body"
+ W !
+ W !,"Enter log level: "
+ R X:300 E  Q
+ I '$L(X) Q
+ I X'?1N W " ??" G LOG
+ I X>3 W " ??" G LOG
+ D SLOG^VPRJRCL(X)
+ Q
+CLEAR ; Clear the current logs
+ W !,"Clearing all logs",!
+ D CLEAR^VPRJRCL
+ Q
+ERROR ; List errors
+  N DT,JOB,ID
+  S DT=0 F  S DT=$O(^VPRHTTP("log",DT)) Q:'DT  D
+  . S JOB=0 F  S JOB=$O(^VPRHTTP("log",DT,JOB)) Q:'JOB  D
+  . . S ID=0 F  S ID=$O(^VPRHTTP("log",DT,JOB,ID)) Q:'ID  D
+  . . . S X=$G(^VPRHTTP("log",DT,JOB,ID,"error"))
+  . . . Q:'$L(X)
+  . . . W !,ID,?10,$$HTE^XLFDT(DT),?14,X
+  Q
+VPRSTAT ; VPR statistics
+ D STATUS^VPRJPM
+ Q
+PIDSTAT ; PID statistics
+ N PID S PID=$$ASKPID^VPRJPM Q:'PID
+ D STATUS^VPRJPM(PID)
+ Q
+RIDXALL ; Re-index entire VPR
+ D RIDXALL^VPRJPM
+ Q
+RIDXPID ; Re-index by PID
+ N PID S PID=$$ASKPID^VPRJPM Q:'PID
+ D RIDXPID^VPRJPM(PID)
+ Q
+RIDXONE ; Build a single index
+ Q
+RBLDALL ; Re-build entire VPR
+ D RBLDALL^VPRJPM
+ Q
+RBLDPID ; Re-build by PID
+ N PID S PID=$$ASKPID^VPRJPM Q:'PID
+ D RBLDPID^VPRJPM(PID)
+ Q
+LISTPTA ; List patients alphabetically
+ D LISTPTS(1)
+ Q
+LISTPTP ; List patients by PID
+ D LISTPTS(0)
+ Q
+LISTPTS(ALPHA) ; List all the patients in the VPR
+ N PID,DFN,UID,NAME,ICN,SSN,LIST,X
+ S ALPHA=$G(ALPHA)
+ S PID=0 F  S PID=$O(^VPRPT("PID",PID)) Q:'PID  D
+ . S DFN="" F  S DFN=$O(^VPRPT("PID",PID,"DFN",DFN)) Q:DFN=""  D
+ . . S UID="urn:va:"_DFN_":pat:"_$P(DFN,":",2)
+ . . S NAME=^VPRPT(PID,UID,"fullName"),ICN=$G(^("icn")),SSN=$G(^("ssn"))
+ . . I ALPHA S LIST(NAME,PID)=SSN_"^"_ICN_"^"_DFN Q
+ . . S LIST(PID,NAME)=SSN_"^"_ICN_"^"_DFN
+ I ALPHA D
+ . W !,"Name",?30,"PID",?35,"SSN",?50,"ICN",?65,"DFN"
+ . S NAME="" F  S NAME=$O(LIST(NAME)) Q:NAME=""  D
+ . . S PID=0 F  S PID=$O(LIST(NAME,PID)) Q:'PID  D
+ . . . S X=LIST(NAME,PID)
+ . . . W !,NAME,?30,PID,?35,$P(X,"^"),?50,$P(X,"^",2),?65,$P(X,"^",3)
+ E  D
+ . W !,"PID",?5,"NAME",?35,"SSN",?50,"ICN",?65,"DFN"
+ . S PID=0 F  S PID=$O(LIST(PID)) Q:'PID  D
+ . . S NAME="" F  S NAME=$O(LIST(PID,NAME)) Q:NAME=""  D
+ . . . S X=LIST(PID,NAME)
+ . . . W !,PID,?5,NAME,?35,$P(X,"^"),?50,$P(X,"^",2),?65,$P(X,"^",3)
+ Q
+DELPID ; Delete a patient from the VPR
+ N PID S PID=$$ASKPID^VPRJPM Q:'PID
+ D CLEARPT^VPRJP(PID)
+ Q
+RESET ; Reset the VPR (kill the database an re-initialize)
+ I '$$ISYES("Are you sure you want to delete the database? ") Q
+ D KILLDB^VPRJPM
+ Q
+ ;
+ASKFRBLD ; ask first before rebuilding everything
+ I '$$ISYES("Are you sure you want rebuild all data stores? ") Q
+ D FULLRBLD
+ Q
+ASKFRSET ; ask first before deleting all data
+ I '$$ISYES("Are you sure you want to delete all data stores? ") Q
+ D FULLRSET
+ Q
+FULLRBLD ; do a full rebuild of VPR and non-patient data
+ D RBLDALL^VPRJPM W !,"VPR rebuilt"
+ D RBLDALL^VPRJDM W !,"ODC rebuilt"
+ Q
+FULLRSET ; reset (delete data and re-init) for VPR and non-patient data
+ D KILLDB^VPRJPM
+ D KILLDB^VPRJDM
+ Q
+ISYES(MSG) ; returns 1 if user answers yes to message, otherwise 0
+ N X
+ W !,MSG
+ R X:300 E  Q 0
+ I $$UP^XLFSTR($E(X))="Y" Q 1
+ Q 0
+ ;
+ 
