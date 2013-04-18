@@ -7,6 +7,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import gov.va.cpe.vpr.m4j.MMap;
 import gov.va.cpe.vpr.m4j.mparser.MCmd.MCmdI;
 import gov.va.cpe.vpr.m4j.mparser.MCmd.MCmdQ;
 import gov.va.cpe.vpr.m4j.mparser.MCmd.MCmdW;
@@ -512,11 +513,19 @@ public class ParserTests {
 		ctx.setOutputStream(baos);
 		
 		// the first command
-		MLine line = new MLine(" S FOO(\"bar\")=\"world\" I FOO(\"bar\")=\"world\" W !,\"hello \"_FOO(\"bar\"),!", 0);
+		String m = " S FOO(\"bar\")=\"hello\",FOO(\"baz\")=\"world\" I FOO(\"bar\")=\"hello\" W !,FOO(\"bar\")_\" \"_FOO(\"baz\"),! ; should write hello world";
+		MLine line = new MLine(m, 0);
 		line.eval(ctx);
+		
+//		System.out.println(MParserUtils.displayStructure(line, 100));
 		
 		// should result in writing hello world 
 		assertEquals("\nhello world\n", baos.toString());
+		
+		// check context has the local vars
+		MMap foo = ctx.getLocal("FOO");
+		assertEquals("hello", foo.getValue("bar"));
+		assertEquals("world", foo.getValue("baz"));
 	}
 	
 	@Test 

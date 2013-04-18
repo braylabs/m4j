@@ -109,6 +109,14 @@ public class MLine extends MToken<MToken<?>> {
 		return cmd;
 	}
 	
+	/**
+	 * Convienience method for evaluating a single M line
+	 */
+	public static Object eval(String mline, MContext ctx) {
+		MLine line = new MLine(mline,1);
+		return line.eval(ctx);
+	}
+	
 	public static class MComment extends MToken {
 		public MComment(String comment, int offset) {
 			super(comment, offset);
