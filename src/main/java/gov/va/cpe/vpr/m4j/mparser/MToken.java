@@ -30,8 +30,9 @@ public abstract class MToken<T> implements Iterable<T> {
 		return offset;
 	}
 	
-	public void exec(MContext ctx) {
+	public Object eval(MContext ctx) {
 		// does nothing by default
+		return null;
 	}
 	
 	@Override
@@ -138,7 +139,7 @@ public abstract class MToken<T> implements Iterable<T> {
 		}
 		
 		public Object eval(MContext ctx) {
-			if (this.children.size() == 1) {
+			if (this.children != null && this.children.size() == 1) {
 				return this.children.get(0).eval(ctx);
 			}
 			return null;
@@ -214,7 +215,7 @@ public abstract class MToken<T> implements Iterable<T> {
 		}
 	}
 	
-	public static class MGlobalRef extends MRef {
+	public static class MGlobalRef extends MRef implements MAssignable {
 		private String name;
 
 		public MGlobalRef(String value, String name, MArgList args) {
@@ -227,21 +228,67 @@ public abstract class MToken<T> implements Iterable<T> {
 			MMap global = ctx.getGlobal(this.name);
 			
 			MArgList args = getArgs();
-			for (MExprItem expr : args) {
-				Object eval = expr.eval(ctx);
-				global = global.get(eval);
+			if (args != null) {
+				for (MExprItem expr : args) {
+					Object eval = expr.eval(ctx);
+					global = global.get(eval);
+				}
 			}
 			
 			return global.getValue();
 		}
+		
+		@Override
+		public void set(MContext ctx, Object val) {
+			MMap var = ctx.getGlobal(this.name);
+			
+			MArgList args = getArgs();
+			if (args != null) {
+				for (MExprItem expr : args) {
+					Object eval = expr.eval(ctx);
+					var = var.get(eval);
+				}
+			}
+			
+			var.setValue(val);
+		}
 	}
 	
-	public static class MLocalVarRef extends MRef {
+	public static class MLocalVarRef extends MRef implements MAssignable {
 		private String name;
 
 		public MLocalVarRef(String value, String name, MArgList args) {
 			super(value, args);
 			this.name = name;
+		}
+
+		@Override
+		public Object eval(MContext ctx) {
+			MMap local = ctx.getLocal(this.name);
+			
+			MArgList args = getArgs();
+			if (args != null) {
+				for (MExprItem expr : args) {
+					Object eval = expr.eval(ctx);
+					local = local.get(eval);
+				}
+			}
+			
+			return local.getValue();
+		}
+		
+		@Override
+		public void set(MContext ctx, Object val) {
+			MMap var = ctx.getLocal(this.name);
+			
+			MArgList args = getArgs();
+			if (args != null) {
+				for (MExprItem expr : args) {
+					Object eval = expr.eval(ctx);
+					var = var.get(eval);
+				}
+			}
+			var.setValue(val);
 		}
 	}
 
@@ -275,5 +322,9 @@ public abstract class MToken<T> implements Iterable<T> {
 		public MExprNumLiteral(String value, int offset) {
 			super(value, offset);
 		}
+	}
+	
+	public interface MAssignable {
+		public void set(MContext ctx, Object val);
 	}
 }

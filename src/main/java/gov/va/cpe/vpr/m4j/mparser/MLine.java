@@ -34,10 +34,15 @@ public class MLine extends MToken<MToken<?>> {
 		return this.label;
 	}
 	
-	public void exec(MContext ctx) {
+	public Object eval(MContext ctx) {
 		for (MToken<?> tok : getTokens()) {
-			tok.exec(ctx);
+			Object ret = tok.eval(ctx);
+			if (ret == null || (ret instanceof Boolean && ((Boolean) ret) == Boolean.FALSE)) {
+				System.out.println("False Command eval, quit evaluating line....");
+				return null;
+			}
 		}
+		return Boolean.TRUE;
 	}
 	
 	@Override

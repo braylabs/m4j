@@ -87,7 +87,7 @@ public class MCmd extends MToken<MToken<?>> {
 		}
 		
 		@Override
-		public void exec(MContext ctx) {
+		public Object eval(MContext ctx) {
 			// convert the expression list to postfix for evaluation
 			MExprList list = findSubToken(this, MExprList.class, 1);
 			
@@ -100,12 +100,17 @@ public class MCmd extends MToken<MToken<?>> {
 						if (op.equals("=")) {
 							MExprItem rhs = items.get(i-1);
 							MExprItem lhs = items.get(i-2);
-							System.out.println("Targ: " + lhs.eval(ctx));
-							System.out.println("Val: " + rhs.eval(ctx));
+							
+							Object v1 = rhs.eval(ctx), v2 = lhs.eval(ctx);
+							System.out.println("Testing: " + v1 + "=" + v2);
+							if ((v1 == null && v2 == null) || (v1 != null && v2 != null && v1.equals(v2))) {
+								return Boolean.TRUE;
+							}
 						}
 					}
 				}
 			}
+			return Boolean.FALSE;
 		}
 	}
 	
@@ -116,9 +121,42 @@ public class MCmd extends MToken<MToken<?>> {
 		}
 		
 		@Override
-		public void exec(MContext ctx) {
-			// TODO Auto-generated method stub
-			super.exec(ctx);
+		public Object eval(MContext ctx) {
+			// convert the expression list to postfix for evaluation
+			MExprList list = findSubToken(this, MExprList.class, 1);
+			
+			for (MExpr expr : list) {
+				List<MExprItem> items = expr.getExprStack();
+				
+				for (int i=0; i < items.size(); i++) {
+					MExprItem item = items.get(i);
+					if (item instanceof MExprOper) {
+						// pop it and lhs and rhs
+						String op = items.remove(i--).getValue();
+						MExprItem rhs = (items.size() > i && i >= 0) ? items.remove(i--) : null;
+						MExprItem lhs = (items.size() > i && i >= 0) ? items.remove(i--) : null;
+						
+						if (op.equals("_") && rhs != null && lhs != null) {
+							String val = lhs.eval(ctx).toString() + rhs.eval(ctx).toString();
+							items.add(i+1, new MExprStrLiteral(val, -1));
+						} else if (op.equals("!")) {
+							// in the write command, this isn't really an operator, its a newline
+							items.add(i+1, new MExprStrLiteral("\n", -1));
+						} else {
+							throw new RuntimeException("Unknown Operator: " + item);
+						}
+					}
+				}
+				
+				// if there is only one item left on the stack, print that
+				if (items.size() == 1) {
+					ctx.getOutputStream().print(items.get(0).eval(ctx));
+				} else {
+					throw new IllegalArgumentException("Unballanced statement, remaining evaluation stack: " + items);
+				}
+			}
+			
+			return Boolean.TRUE;
 		}
 	}
 	
@@ -129,12 +167,12 @@ public class MCmd extends MToken<MToken<?>> {
 		}
 		
 		@Override
-		public void exec(MContext ctx) {
+		public Object eval(MContext ctx) {
 			// convert the expression list to postfix for evaluation
 			MExprList list = findSubToken(this, MExprList.class, 1);
 			
 			for (MExpr expr : list) {
-				List<MExprItem> items = expr.getExprStack(); 
+				List<MExprItem> items = expr.getExprStack();
 				for (int i = 0; i < items.size(); i++) {
 					MExprItem item = items.get(i);
 					if (item instanceof MExprOper) {
@@ -142,14 +180,16 @@ public class MCmd extends MToken<MToken<?>> {
 						if (op.equals("=")) {
 							MExprItem rhs = items.get(i-1);
 							MExprItem lhs = items.get(i-2);
-							System.out.println("LHS: " + lhs.eval(ctx));
-							System.out.println("RHS: " + rhs.eval(ctx));
-							
-							System.out.println(MParserUtils.displayStructure(item, 10));
+							if (lhs instanceof MAssignable) {
+								System.out.println("Setting: " + lhs + " TO " + rhs.eval(ctx));
+								((MAssignable) lhs).set(ctx, rhs.eval(ctx));
+							}
 						}
 					}
 				}
 			}
+			
+			return Boolean.TRUE;
 		}
 	}
 	
@@ -161,9 +201,9 @@ public class MCmd extends MToken<MToken<?>> {
 		}
 		
 		@Override
-		public void exec(MContext ctx) {
+		public Object eval(MContext ctx) {
 			// TODO Auto-generated method stub
-			super.exec(ctx);
+			return super.eval(ctx);
 		}
 	}
 	

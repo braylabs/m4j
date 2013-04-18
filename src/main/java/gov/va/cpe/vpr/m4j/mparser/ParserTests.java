@@ -17,6 +17,7 @@ import gov.va.cpe.vpr.m4j.mparser.MToken.MExprOper;
 import gov.va.cpe.vpr.m4j.mparser.MToken.MExprStrLiteral;
 import gov.va.cpe.vpr.m4j.mparser.MToken.MFxnRef;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -504,12 +505,18 @@ public class ParserTests {
 	}
 	
 	@Test
-	public void testExecCmd() {
+	public void testExecHelloWorld() {
+		// capture output in a string instead of to System.out
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		MContext ctx = new MContext();
-		String str = " W ^FOO(\"status\")=\"bar\" I ^FOO(\"status\")=\"bar\" W \"foo bar.\"";
-		MLine line = new MLine(str, 0);
-		System.out.println(MParserUtils.displayStructure(line, 10));
-		line.exec(ctx);
+		ctx.setOutputStream(baos);
+		
+		// the first command
+		MLine line = new MLine(" S FOO(\"bar\")=\"world\" I FOO(\"bar\")=\"world\" W !,\"hello \"_FOO(\"bar\"),!", 0);
+		line.eval(ctx);
+		
+		// should result in writing hello world 
+		assertEquals("\nhello world\n", baos.toString());
 	}
 	
 	@Test 

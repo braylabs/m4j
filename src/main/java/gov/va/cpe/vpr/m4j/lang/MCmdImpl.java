@@ -54,6 +54,8 @@ public abstract class MCmdImpl {
 		impl.put("IF", MCmd.MCmdI.class);
 		impl.put("W", MCmd.MCmdW.class);
 		impl.put("WRITE", MCmd.MCmdW.class);
+		impl.put("S", MCmd.MCmdS.class);
+		impl.put("SET", MCmd.MCmdS.class);
 		impl.put("Q", MCmd.MCmdQ.class);
 		impl.put("QUIT", MCmd.MCmdQ.class);
 		COMMAND_IMPL_MAP = Collections.unmodifiableMap(impl);
