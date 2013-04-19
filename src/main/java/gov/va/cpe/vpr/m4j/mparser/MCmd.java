@@ -4,11 +4,68 @@ import static gov.va.cpe.vpr.m4j.lang.MUMPS.$P;
 import gov.va.cpe.vpr.m4j.mparser.MToken.MExpr.MPostCondTruthValExpr;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Stack;
+import java.util.Map;
+import java.util.Set;
 
 public class MCmd extends MToken<MToken<?>> {
+	
+	public static final Set<String> COMMAND_SET = Collections
+			.unmodifiableSet(new HashSet<String>(Arrays.asList("B", "C", "D",
+					"E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "Q",
+					"R", "S", "TC", "TRE", "TRO", "TS", "U", "V", "W", "X")));
+	
+	public static final Set<String> ARITHMETIC_OPS = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList("+", "-", "*", "**", "/", "\\", "#")));
+	
+	public static final Set<String> LOGICAL_OPS = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList("'", "&", "!")));
+	public static final Set<String> NUMERIC_REL_OPS = Collections
+			.unmodifiableSet(new HashSet<String>(Arrays.asList(">", "<", "=",
+					"'>", "'<", ">=", "<=", "'=")));
+	
+	public static final Set<String> STRING_REL_OPS = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList("=", "[", "]", "]]", "'[", "']", "']]", "'=")));
+	
+	public static final Set<String> STRING_OPS = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList("_")));
+	public static final Set<String> PATTERN_MATCH_OPS = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList("")));
+	
+	public static final Set<Character> ALL_OPERATOR_CHARS = Collections
+			.unmodifiableSet(new HashSet<Character>(Arrays.asList('+', '-',
+					'*', '/', '\\', '#', '\'', '&', '!', '>', '<', '=', '[',
+					']', '_')));
+	
+	public static Set<String> ALL_OPERATORS = null;
+	public static Map<String, Class<? extends MCmd>> COMMAND_IMPL_MAP = null;
+	
+	static {
+		Set<String> all = new HashSet<String>();
+		all.addAll(ARITHMETIC_OPS);
+		all.addAll(LOGICAL_OPS);
+		all.addAll(NUMERIC_REL_OPS);
+		all.addAll(STRING_REL_OPS);
+		all.addAll(STRING_OPS);
+		all.addAll(PATTERN_MATCH_OPS);
+		ALL_OPERATORS = Collections.unmodifiableSet(all);
+		
+		Map<String, Class<? extends MCmd>> impl = new HashMap<String, Class<? extends MCmd>>();
+		impl.put("I", MCmd.MCmdI.class);
+		impl.put("IF", MCmd.MCmdI.class);
+		impl.put("F", MCmd.MCmdF.class);
+		impl.put("FOR", MCmd.MCmdF.class);
+
+		impl.put("W", MCmd.MCmdW.class);
+		impl.put("WRITE", MCmd.MCmdW.class);
+		impl.put("S", MCmd.MCmdS.class);
+		impl.put("SET", MCmd.MCmdS.class);
+		impl.put("Q", MCmd.MCmdQ.class);
+		impl.put("QUIT", MCmd.MCmdQ.class);
+		COMMAND_IMPL_MAP = Collections.unmodifiableMap(impl);
+	}
+	
+	
 	private String cmdvalue;
 	private String cmdname;
 	private String cmd;
@@ -87,7 +144,7 @@ public class MCmd extends MToken<MToken<?>> {
 		}
 		
 		@Override
-		public Object eval(MContext ctx) {
+		public Object eval(MContext ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
 			MExprList list = findSubToken(this, MExprList.class, 1);
 			
@@ -101,7 +158,7 @@ public class MCmd extends MToken<MToken<?>> {
 							MExprItem rhs = items.get(i-1);
 							MExprItem lhs = items.get(i-2);
 							
-							Object v1 = rhs.eval(ctx), v2 = lhs.eval(ctx);
+							Object v1 = rhs.eval(ctx, this), v2 = lhs.eval(ctx, this);
 							System.out.println("Testing: " + v1 + "=" + v2);
 							if ((v1 == null && v2 == null) || (v1 != null && v2 != null && v1.equals(v2))) {
 								return Boolean.TRUE;
@@ -121,7 +178,7 @@ public class MCmd extends MToken<MToken<?>> {
 		}
 		
 		@Override
-		public Object eval(MContext ctx) {
+		public Object eval(MContext ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
 			MExprList list = findSubToken(this, MExprList.class, 1);
 			
@@ -137,7 +194,7 @@ public class MCmd extends MToken<MToken<?>> {
 						MExprItem lhs = (items.size() > i && i >= 0) ? items.remove(i--) : null;
 						
 						if (op.equals("_") && rhs != null && lhs != null) {
-							String val = lhs.eval(ctx).toString() + rhs.eval(ctx).toString();
+							String val = lhs.eval(ctx, this).toString() + rhs.eval(ctx, this).toString();
 							items.add(i+1, new MExprStrLiteral(val, -1));
 						} else if (op.equals("!")) {
 							// in the write command, this isn't really an operator, its a newline
@@ -150,7 +207,7 @@ public class MCmd extends MToken<MToken<?>> {
 				
 				// if there is only one item left on the stack, print that
 				if (items.size() == 1) {
-					ctx.getOutputStream().print(items.get(0).eval(ctx));
+					ctx.getOutputStream().print(items.get(0).eval(ctx, this));
 				} else {
 					throw new IllegalArgumentException("Unballanced statement, remaining evaluation stack: " + items);
 				}
@@ -167,10 +224,55 @@ public class MCmd extends MToken<MToken<?>> {
 		}
 		
 		@Override
-		public Object eval(MContext ctx) {
+		public Object eval(MContext ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
 			MExprList list = findSubToken(this, MExprList.class, 1);
 			
+			for (MExpr expr : list) {
+				List<MExprItem> items = expr.getExprStack();
+				for (int i = 0; i < items.size(); i++) {
+					MExprItem item = items.get(i);
+					if (item instanceof MExprOper) {
+						String op = items.remove(i--).getValue();
+						MExprItem rhs = (items.size() > i && i >= 0) ? items.remove(i--) : null;
+						MExprItem lhs = (items.size() > i && i >= 0) ? items.remove(i--) : null;
+						if (op.equals("=")) {
+							if (lhs instanceof MAssignable) {
+								System.out.println("Setting: " + lhs + " TO " + rhs.eval(ctx, this));
+								((MAssignable) lhs).set(ctx, rhs.eval(ctx, this), this);
+							}
+						} else if (op.equals("+")) {
+							Number val1 = MParserUtils.evalNumericValue(lhs.eval(ctx, this));
+							Number val2 = MParserUtils.evalNumericValue(rhs.eval(ctx, this));
+							double newval = val1.doubleValue()+val2.doubleValue();
+							items.add(i+1,new MExprNumLiteral(newval + "", -1));
+						} else {
+							throw new IllegalStateException("Unknown Operator: " + op);
+						}
+					}
+				}
+			}
+			
+			return Boolean.TRUE;
+		}
+	}
+	
+	public static class MCmdF extends MCmd {
+
+		public MCmdF(String cmdname, String cmdvalue, int offset) {
+			super(cmdname, cmdvalue, offset);
+		}
+		
+		@Override
+		public Object eval(MContext ctx, MToken<?> parent) {
+			// convert the expression list to postfix for evaluation
+			MExprList list = findSubToken(this, MExprList.class, 1);
+
+			Integer incVal = null;
+			Integer incLimit = null;
+			MAssignable iteratorVal = null;
+			
+			// loop through the expressions to initalize the loop
 			for (MExpr expr : list) {
 				List<MExprItem> items = expr.getExprStack();
 				for (int i = 0; i < items.size(); i++) {
@@ -181,17 +283,58 @@ public class MCmd extends MToken<MToken<?>> {
 							MExprItem rhs = items.get(i-1);
 							MExprItem lhs = items.get(i-2);
 							if (lhs instanceof MAssignable) {
-								System.out.println("Setting: " + lhs + " TO " + rhs.eval(ctx));
-								((MAssignable) lhs).set(ctx, rhs.eval(ctx));
+								System.out.println("Initalizing: " + lhs + " TO " + rhs.eval(ctx, this));
+								iteratorVal = (MAssignable) lhs;
+								iteratorVal.set(ctx, rhs.eval(ctx, this), this);
 							}
 						}
+					} else if (item instanceof MExprParam) {
+						if (incVal == null) {
+							incVal = Integer.parseInt(item.eval(ctx, this).toString());
+						} else if (incLimit == null) {
+							incLimit = Integer.parseInt(item.eval(ctx, this).toString());
+						}
+						items.remove(i--);
 					}
 				}
 			}
 			
-			return Boolean.TRUE;
+			// now run the rest of the line x number of times
+			MLine line = (MLine) parent;
+			List<MToken<?>> lineRest = line.getTokens();
+			int forLoopPos = line.getTokens().indexOf(this);
+			boolean stop = false;
+			for (;;) {
+				for (int i=forLoopPos+1; i != -1 && i < lineRest.size();i++ ) {
+					MToken<?> tok = lineRest.get(i);
+					if (tok instanceof MCmd) {
+						Object ret = tok.eval(ctx, this);
+						if (ret != null && (ret instanceof Boolean && ((Boolean) ret) == Boolean.FALSE)) {
+							stop=true;
+							break;
+						}
+					}
+				}
+				if (stop) break;
+				
+				
+				// increment if requested
+				if (iteratorVal != null && incVal != null) {
+					Integer intval = Integer.parseInt(((MToken<?>)iteratorVal).eval(ctx, this).toString());
+					if (incLimit != null && intval < incLimit) {
+						iteratorVal.set(ctx, intval+incVal, this);
+					} else {
+						stop = true;
+						break;
+					}
+				}
+
+			}
+			
+			return Boolean.FALSE; // dont run anymore
 		}
 	}
+	
 	
 	
 	public static class MCmdQ extends MCmd {
@@ -201,9 +344,31 @@ public class MCmd extends MToken<MToken<?>> {
 		}
 		
 		@Override
-		public Object eval(MContext ctx) {
-			// TODO Auto-generated method stub
-			return super.eval(ctx);
+		public Object eval(MContext ctx, MToken<?> parent) {
+			
+			MPostCondTruthValExpr tvexpr = findSubToken(this, MPostCondTruthValExpr.class, 1);
+			if (tvexpr != null) {
+				Object result = tvexpr.eval(ctx, this);
+				if (result != null && result instanceof Boolean) {
+					Boolean ret = (Boolean) result;
+					return (ret == Boolean.TRUE) ? Boolean.FALSE : Boolean.TRUE;
+				}
+			}
+			return Boolean.FALSE; // indicate to stop processing...
+		}
+	}
+	
+	public static class MParseException extends Exception {
+		private static final long serialVersionUID = 1L;
+		private MToken<?> tok;
+		
+		public MParseException(MToken<?> tok, String msg) {
+			super(msg);
+			this.tok = tok;
+		}
+		
+		public MToken<?> getToken() {
+			return tok;
 		}
 	}
 	

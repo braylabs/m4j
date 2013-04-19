@@ -1,8 +1,6 @@
 package gov.va.cpe.vpr.m4j.mparser;
 
 import static gov.va.cpe.vpr.m4j.lang.MUMPS.$P;
-import gov.va.cpe.vpr.m4j.lang.MCmdImpl;
-import gov.va.cpe.vpr.m4j.lang.MCmdImpl.MParseException;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
@@ -36,7 +34,7 @@ public class MLine extends MToken<MToken<?>> {
 	
 	public Object eval(MContext ctx) {
 		for (MToken<?> tok : getTokens()) {
-			Object ret = tok.eval(ctx);
+			Object ret = tok.eval(ctx, this);
 			if (ret == null || (ret instanceof Boolean && ((Boolean) ret) == Boolean.FALSE)) {
 				System.out.println("False Command eval, quit evaluating line....");
 				return null;
@@ -96,7 +94,7 @@ public class MLine extends MToken<MToken<?>> {
 		
 		// If we have a more specific class for this command, use introspection to build one.
 		String name = cmd.getCommandName();
-		Class<? extends MCmd> clz = MCmdImpl.COMMAND_IMPL_MAP.get(name); 
+		Class<? extends MCmd> clz = MCmd.COMMAND_IMPL_MAP.get(name); 
 		if (clz != null) {
 			try {
 				Constructor<? extends MCmd> c = clz.getConstructor(String.class, String.class, int.class);

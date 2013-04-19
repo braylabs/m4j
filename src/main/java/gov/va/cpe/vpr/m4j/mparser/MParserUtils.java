@@ -1,7 +1,5 @@
 package gov.va.cpe.vpr.m4j.mparser;
 
-import gov.va.cpe.vpr.m4j.lang.MCmdImpl;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -9,8 +7,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.Stack;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public abstract class MParserUtils {
 	private static Set<String> DEFAULT_DELIMS = new HashSet<String>(Arrays.asList(" "));
@@ -30,7 +26,7 @@ public abstract class MParserUtils {
 	}
 	
 	public static final List<String> tokenizeOps(CharSequence line) {
-		return tokenize(line, MCmdImpl.ALL_OPERATORS, true, true, true, true, true);
+		return tokenize(line, MCmd.ALL_OPERATORS, true, true, true, true, true);
 	}
 
 
@@ -136,9 +132,11 @@ public abstract class MParserUtils {
 				continue;
 			}
 			
-			
-			if (MCmdImpl.ALL_OPERATORS.contains(tok)) {
-				while (!stack.isEmpty() && !stack.peek().equals("(")) {
+			// If tok is an operator, 
+			if (MCmd.ALL_OPERATORS.contains(tok)) {
+				// while there is an operator token o(2) at the top of the stack
+				// and tok is left-associative and its precedence is less than or equal to that of o(2)
+				while (!stack.isEmpty() && !stack.peek().equals("(") && (getOpPrecedence(tok) <= getOpPrecedence(stack.peek()))) {
 					ret.add(stack.pop());
 				}
 				stack.push(tok);
@@ -157,6 +155,14 @@ public abstract class MParserUtils {
 			ret.add(stack.pop());
 		}
 		
+		return ret;
+	}
+	
+	private static final int getOpPrecedence(String op) {
+		int ret = 1;
+		if (op.equals("=")) {
+			ret = 0;
+		}
 		return ret;
 	}
 	
@@ -233,6 +239,48 @@ public abstract class MParserUtils {
 			}
 		}
 		return null;
+	}
+	
+	/**
+	 * Try to derive a numeric value from the string/value, M has some strange rules about this
+	 */
+	public static final Number evalNumericValue(Object obj) {
+		if (obj == null) return 0;
+		if (obj instanceof Number) return (Number) obj;
+		String str = obj.toString();
+		if (str.isEmpty()) return 0;
+		
+		boolean isFloat = false;
+		float mult = 1f;
+		if (str.startsWith("-")) {
+			str = str.substring(1);
+			mult = -1f;
+		}
+		if (str.indexOf('E') > 0 || str.indexOf('e') > 0) {
+			String[] split = str.split("[eE]");
+			str = split[0];
+			if (split[1].indexOf('.') > 0) isFloat = true;
+			mult *= Math.pow(10, Float.parseFloat(split[1]));
+		}
+
+		// now go through the characters, when we encounter the first non-numeric character, ignore the rest
+		for (int i=0; i < str.length(); i++) {
+			char c = str.charAt(i);
+			if (c == '.') {
+				isFloat = true;
+			} else if (!Character.isDigit(c)) {
+				// done
+				str = str.substring(0, i);
+				break;
+			}
+		}
+		
+		// should be a parsable number now
+		if (isFloat) {
+			return Double.parseDouble(str)*mult;
+		} 
+		return Integer.parseInt(str)*Math.round(mult);
+		
 	}
 	
 	/**

@@ -17,6 +17,7 @@ import gov.va.cpe.vpr.m4j.mparser.MToken.MExprItem;
 import gov.va.cpe.vpr.m4j.mparser.MToken.MExprOper;
 import gov.va.cpe.vpr.m4j.mparser.MToken.MExprStrLiteral;
 import gov.va.cpe.vpr.m4j.mparser.MToken.MFxnRef;
+import gov.va.cpe.vpr.m4j.mparser.ParserTests.TestMContext;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -39,12 +40,29 @@ public class ParserTests {
 	Set<String> delims1 = new HashSet<String>(Arrays.asList(" "));
 	Set<String> delims2 = new HashSet<String>(Arrays.asList(" ", ","));
 	MRoutine vprj;
+	TestMContext ctx;
+	
+	public static class TestMContext extends MContext {
+		private ByteArrayOutputStream baos;
+
+		public TestMContext() {
+			// capture output in a string instead of to System.out
+			baos = new ByteArrayOutputStream();
+			setOutputStream(baos);
+		}
+		
+		public String toString() {
+			return baos.toString();
+		}
+		
+	}
 	
 	@Before
 	public void before() throws URISyntaxException, IOException {
 		URL fileurl = ParserTests.class.getResource("testroutine.int");
 		this.test = new File(fileurl.toURI());
 		vprj = MRoutine.parseRoutineOutputFile(new FileInputStream(this.test)).get(0);
+		ctx = new TestMContext();
 	}
 	
 	@Test
@@ -231,7 +249,14 @@ public class ParserTests {
 		assertEquals("truthyfxn(4<3)", toks.get(1));
 		assertEquals("=", toks.get(2));
 		
-
+		// I=I+1 needs operator precedence (only for the ='s)
+		toks = infixToPostFix("I=I+1");
+		assertEquals(5, toks.size());
+		assertEquals("I", toks.get(0));
+		assertEquals("I", toks.get(1));
+		assertEquals("1", toks.get(2));
+		assertEquals("+", toks.get(3));
+		assertEquals("=", toks.get(4));
 	}
 	
 	@Test
@@ -296,6 +321,29 @@ public class ParserTests {
 		assertEquals(null, MParserUtils.parseStringLiteral("abc", 0));
 		assertEquals(null, MParserUtils.parseStringLiteral("abc", -1));
 		assertEquals(null, MParserUtils.parseStringLiteral("abc", 10));
+	}
+	@Test
+	public void testParseNumericValue() {
+		// simple
+		assertEquals(1, evalNumericValue("1"));
+		assertEquals(0, evalNumericValue("0"));
+		assertEquals(-1, evalNumericValue("-1"));
+		assertEquals(1.1, evalNumericValue("1.1"));
+		assertEquals(0.1, evalNumericValue("0.1"));
+		assertEquals(1d, evalNumericValue("1.0"));
+		
+		// already numeric values
+		assertEquals(10, evalNumericValue(new Integer(10)));
+		assertEquals(10d, evalNumericValue(new Double(10)));
+		
+		// scientific notation
+		assertEquals(1000, evalNumericValue("1E3"));
+		assertEquals(1000, evalNumericValue("1e3"));
+		assertEquals(-0.0011d, (Double) evalNumericValue("-1.1e-3"), .01d);
+		
+		// border cases
+		assertEquals(0, evalNumericValue(""));
+		assertEquals(0, evalNumericValue(null));
 	}
 	
 	@Test
@@ -507,11 +555,6 @@ public class ParserTests {
 	
 	@Test
 	public void testExecHelloWorld() {
-		// capture output in a string instead of to System.out
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		MContext ctx = new MContext();
-		ctx.setOutputStream(baos);
-		
 		// the first command
 		String m = " S FOO(\"bar\")=\"hello\",FOO(\"baz\")=\"world\" I FOO(\"bar\")=\"hello\" W !,FOO(\"bar\")_\" \"_FOO(\"baz\"),! ; should write hello world";
 		MLine line = new MLine(m, 0);
@@ -520,12 +563,30 @@ public class ParserTests {
 //		System.out.println(MParserUtils.displayStructure(line, 100));
 		
 		// should result in writing hello world 
-		assertEquals("\nhello world\n", baos.toString());
+		assertEquals("\nhello world\n", ctx.toString());
 		
 		// check context has the local vars
 		MMap foo = ctx.getLocal("FOO");
 		assertEquals("hello", foo.getValue("bar"));
 		assertEquals("world", foo.getValue("baz"));
+	}
+	
+	@Test
+	public void testExecForLoop() {
+		// test the incremetal form
+		String m = " W !,\"Waiting 5 Secs\",! F I=1:1:5 H 1 W \".\"";
+		MLine line = new MLine(m, 0);
+//		System.out.println(MParserUtils.displayStructure(line, 100));
+		line.eval(ctx);
+		assertEquals("\nWaiting 5 Secs\n.....", ctx.toString());
+		
+		// test the non-incremental form, write x 5 times, ending value of I should be 6
+		ctx = new TestMContext();
+		m = " S I=1 F  Q:I>5  W \"x\" S I=I+1";
+		line = new MLine(m, 0);
+		line.eval(ctx);
+		assertEquals("xxxxx", ctx.toString());
+		assertEquals("6.0", ctx.getLocal("I").getValue());
 	}
 	
 	@Test 

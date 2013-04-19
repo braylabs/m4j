@@ -1,8 +1,6 @@
 package gov.va.cpe.vpr.m4j.mparser;
 
 import gov.va.cpe.vpr.m4j.MMap;
-import gov.va.cpe.vpr.m4j.lang.MCmdImpl;
-import gov.va.cpe.vpr.m4j.mparser.MToken.MExprItem;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -30,7 +28,7 @@ public abstract class MToken<T> implements Iterable<T> {
 		return offset;
 	}
 	
-	public Object eval(MContext ctx) {
+	public Object eval(MContext ctx, MToken<?> parent) {
 		// does nothing by default
 		return null;
 	}
@@ -70,8 +68,14 @@ public abstract class MToken<T> implements Iterable<T> {
 			for (int i=0; i < toks.size(); i++) {
 				String tok = toks.get(i);
 				
+				// look for MExprParams
+				List<String> params = MParserUtils.tokenize(tok, ':');
+				for (int j=1; j < params.size(); j++) {
+					ret.add(new MExprParam(params.get(j)));
+				}
+				
 				// an operator
-				if (MCmdImpl.ALL_OPERATORS.contains(tok)) {
+				if (MCmd.ALL_OPERATORS.contains(tok)) {
 					ret.add(new MExprOper(tok));
 					continue;
 				}
@@ -110,20 +114,42 @@ public abstract class MToken<T> implements Iterable<T> {
 					// local var ref
 					ret.add(new MLocalVarRef(tok, name, arglist));
 				}
+
 			}
 			
 			return ret;
 		}
 		
-		public abstract static class MTruthValExpr extends MExpr {
-			public MTruthValExpr(String tvexpr, int offset) {
-				super(tvexpr, offset);
-			}
-		}
-		
-		public static class MPostCondTruthValExpr extends MTruthValExpr {
+		public static class MPostCondTruthValExpr extends MExpr {
 			public MPostCondTruthValExpr(String tvexpr, int offset) {
 				super(tvexpr, offset);
+			}
+			
+			@Override
+			public Object eval(MContext ctx, MToken<?> parent) {
+				List<MExprItem> items = getExprStack();
+				
+				for (int i=0; i < items.size(); i++) {
+					MExprItem item = items.get(i);
+					if (item instanceof MExprOper) {
+						// pop it and lhs and rhs
+						String op = items.remove(i--).getValue();
+						MExprItem rhs = (items.size() > i && i >= 0) ? items.remove(i--) : null;
+						MExprItem lhs = (items.size() > i && i >= 0) ? items.remove(i--) : null;
+						
+						if (op.equals(">")) {
+							Number val1 = MParserUtils.evalNumericValue(rhs.eval(ctx, this));
+							Number val2 = MParserUtils.evalNumericValue(lhs.eval(ctx, this));
+							if ( val2.doubleValue() > val1.doubleValue()) {
+								return Boolean.TRUE;
+							}
+						} else {
+							throw new RuntimeException("Unknown Operator: " + item);
+						}
+					}
+				}
+				
+				return Boolean.FALSE;
 			}
 		}
 	}
@@ -138,13 +164,23 @@ public abstract class MToken<T> implements Iterable<T> {
 			super(value, offset);
 		}
 		
-		public Object eval(MContext ctx) {
+		@Override
+		public Object eval(MContext ctx, MToken<?> parent) {
 			if (this.children != null && this.children.size() == 1) {
-				return this.children.get(0).eval(ctx);
+				return this.children.get(0).eval(ctx, parent);
 			}
 			return null;
 		}
 
+	}
+	
+	/**
+	 * This is a expression param, such as the 5 and 10 in F I=1:5:10.  Its really just a container for another MExpr
+	 */
+	public static class MExprParam extends MExpr {
+		public MExprParam(String value) {
+			super(value,-1);
+		}
 	}
 	
 	public static class MExprOper extends MExprItem {
@@ -224,13 +260,13 @@ public abstract class MToken<T> implements Iterable<T> {
 		}
 		
 		@Override
-		public Object eval(MContext ctx) {
+		public Object eval(MContext ctx, MToken<?> parent) {
 			MMap global = ctx.getGlobal(this.name);
 			
 			MArgList args = getArgs();
 			if (args != null) {
 				for (MExprItem expr : args) {
-					Object eval = expr.eval(ctx);
+					Object eval = expr.eval(ctx, parent);
 					global = global.get(eval);
 				}
 			}
@@ -239,13 +275,13 @@ public abstract class MToken<T> implements Iterable<T> {
 		}
 		
 		@Override
-		public void set(MContext ctx, Object val) {
+		public void set(MContext ctx, Object val, MToken<?> parent) {
 			MMap var = ctx.getGlobal(this.name);
 			
 			MArgList args = getArgs();
 			if (args != null) {
 				for (MExprItem expr : args) {
-					Object eval = expr.eval(ctx);
+					Object eval = expr.eval(ctx, parent);
 					var = var.get(eval);
 				}
 			}
@@ -263,13 +299,13 @@ public abstract class MToken<T> implements Iterable<T> {
 		}
 
 		@Override
-		public Object eval(MContext ctx) {
+		public Object eval(MContext ctx, MToken<?> parent) {
 			MMap local = ctx.getLocal(this.name);
 			
 			MArgList args = getArgs();
 			if (args != null) {
 				for (MExprItem expr : args) {
-					Object eval = expr.eval(ctx);
+					Object eval = expr.eval(ctx, parent);
 					local = local.get(eval);
 				}
 			}
@@ -278,13 +314,13 @@ public abstract class MToken<T> implements Iterable<T> {
 		}
 		
 		@Override
-		public void set(MContext ctx, Object val) {
+		public void set(MContext ctx, Object val, MToken<?> parent) {
 			MMap var = ctx.getLocal(this.name);
 			
 			MArgList args = getArgs();
 			if (args != null) {
 				for (MExprItem expr : args) {
-					Object eval = expr.eval(ctx);
+					Object eval = expr.eval(ctx, parent);
 					var = var.get(eval);
 				}
 			}
@@ -307,7 +343,7 @@ public abstract class MToken<T> implements Iterable<T> {
 		}
 		
 		@Override
-		public Object eval(MContext ctx) {
+		public Object eval(MContext ctx, MToken<?> parent) {
 			return getValue();
 		}
 	}
@@ -325,6 +361,6 @@ public abstract class MToken<T> implements Iterable<T> {
 	}
 	
 	public interface MAssignable {
-		public void set(MContext ctx, Object val);
+		public void set(MContext ctx, Object val, MToken<?> parent);
 	}
 }
