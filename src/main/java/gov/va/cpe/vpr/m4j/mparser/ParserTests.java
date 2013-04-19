@@ -17,6 +17,7 @@ import gov.va.cpe.vpr.m4j.mparser.MToken.MExprItem;
 import gov.va.cpe.vpr.m4j.mparser.MToken.MExprOper;
 import gov.va.cpe.vpr.m4j.mparser.MToken.MExprStrLiteral;
 import gov.va.cpe.vpr.m4j.mparser.MToken.MFxnRef;
+import gov.va.cpe.vpr.m4j.mparser.MToken.MLineItem;
 import gov.va.cpe.vpr.m4j.mparser.ParserTests.TestMContext;
 
 import java.io.ByteArrayOutputStream;
@@ -494,27 +495,27 @@ public class ParserTests {
 		assertEquals(8, isyes.size());
 		
 		// L0 is: ISYES(MSG) ; returns 1 if user answers yes to message, otherwise 0
-		List<MToken<?>> l0 = isyes.get(0).getTokens();
+		List<MLineItem> l0 = isyes.get(0).getTokens();
 		assertEquals(2, l0.size());
 		assertEquals("ISYES(MSG)", l0.get(0).getValue());
 		assertEquals(MEntryPoint.class, l0.get(0).getClass());
 		
 		// L1 is: N X
-		List<MToken<?>> l1 = isyes.get(1).getTokens();
+		List<MLineItem> l1 = isyes.get(1).getTokens();
 		assertEquals(1, l1.size());
 		assertEquals(MCmd.class, l1.get(0).getClass());
 		cmd = (MCmd) l1.get(0);
 		assertEquals("N X", cmd.getValue());
 		
 		// L2 is: W !,MSG
-		List<MToken<?>> l2 = isyes.get(2).getTokens();
+		List<MLineItem> l2 = isyes.get(2).getTokens();
 		assertEquals(1, l2.size());
 		assertEquals(MCmdW.class, l2.get(0).getClass());
 		cmd = (MCmd) l2.get(0);
 		assertEquals("W !,MSG", cmd.getValue());
 		
 		// L3 is: R X:300 E  Q 0
-		List<MToken<?>> l3 = isyes.get(3).getTokens();
+		List<MLineItem> l3 = isyes.get(3).getTokens();
 		assertEquals(3, l3.size());
 		assertEquals(MCmd.class, l3.get(0).getClass());
 		cmd = (MCmd) l3.get(0);
@@ -525,7 +526,7 @@ public class ParserTests {
 		assertEquals("Q 0", cmd.getValue());
 
 		// L4 is: I $$UP^XLFSTR($E(X))="Y" Q 1
-		List<MToken<?>> l4 = isyes.get(4).getTokens();
+		List<MLineItem> l4 = isyes.get(4).getTokens();
 		assertEquals(2, l4.size());
 		assertEquals(MCmdI.class, l4.get(0).getClass());
 		cmd = (MCmd) l4.get(0);
@@ -534,7 +535,7 @@ public class ParserTests {
 		assertEquals("Q 1", cmd.getValue());
 		
 		// L5 is: Q 0
-		List<MToken<?>> l5 = isyes.get(5).getTokens();
+		List<MLineItem> l5 = isyes.get(5).getTokens();
 		assertEquals(1, l5.size());
 		assertEquals(MCmdQ.class, l5.get(0).getClass());
 		cmd = (MCmd) l5.get(0);
@@ -586,7 +587,7 @@ public class ParserTests {
 		line = new MLine(m, 0);
 		line.eval(ctx);
 		assertEquals("xxxxx", ctx.toString());
-		assertEquals("6.0", ctx.getLocal("I").getValue());
+		assertEquals(6, ctx.getLocal("I").getValue());
 	}
 	
 	@Test 

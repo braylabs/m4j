@@ -1,6 +1,7 @@
 package gov.va.cpe.vpr.m4j.mparser;
 
 import gov.va.cpe.vpr.m4j.MMap;
+import gov.va.cpe.vpr.m4j.mparser.MCmd.MExprList;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -11,12 +12,12 @@ public abstract class MToken<T> implements Iterable<T> {
 	private int offset=0;
 	protected List<T> children;
 	
-	public MToken(String value, int offset) {
+	protected MToken(String value, int offset) {
 		this.value = value;
 		this.offset = offset;
 	}
 	
-	public MToken(String value) {
+	protected MToken(String value) {
 		this(value, 0);
 	}
 
@@ -97,7 +98,7 @@ public abstract class MToken<T> implements Iterable<T> {
 				// otherwise, its a routine/function/variable reference
 				String[] parts = MParserUtils.parseRef(tok);
 				String flags = parts[0], name = parts[1], routine = parts[2], args = parts[3];
-				MArgList arglist = (args != null) ? new MArgList(args) : null;
+				MExprList arglist = (args != null) ? new MExprList(args) : null;
 				if (flags != null && flags.equals("$$")) {
 					// routine ref
 					ret.add(new MRoutineRef(tok, name, routine, arglist));
@@ -190,52 +191,28 @@ public abstract class MToken<T> implements Iterable<T> {
 	}
 	
 	public abstract static class MRef extends MExprItem {
-		private MArgList args;
-		public MRef(String value, MArgList args) {
+		private MExprList args;
+		public MRef(String value, MExprList args) {
 			super(value);
 			this.args = args;
 		}
 		
 		@Override
 		public Iterator<MExprItem> iterator() {
-			return (args == null) ? new ArrayList<MExprItem>().iterator() : args.iterator();
+//			return (args == null) ? new ArrayList<MExpr>().iterator() : args.iterator();
+			return args.iterator();
 		}
 		
-		public MArgList getArgs() {
+		public MExprList getArgs() {
 			return this.args;
 		}
-	}
-	
-	public static class MArgList extends MExprItem {
-		public MArgList(String value) {
-			super(value);
-			getExpressions();
-		}
-		
-		public List<MExprItem> getExpressions() {
-			if (this.children != null) return this.children;
-			List<MExprItem> ret = new ArrayList<MExprItem>();
-			int offset = 0;
-			
-			// parse the command expression list (comma delimited list of expressions)
-			List<String> exprs= MParserUtils.tokenize(getValue(), ',');
-			for (String expr : exprs) {
-				if (!expr.trim().isEmpty()) {
-					offset = getValue().indexOf(expr, offset);
-					ret.add(new MExpr(expr, offset));
-				}
-			}
-
-			return this.children = ret;
-		}
-				
 	}
 	
 	public static class MRoutineRef extends MRef {
 		private String routineName;
 		private String entryPoint;
 
-		public MRoutineRef(String value, String entryPoint, String routineName, MArgList args) {
+		public MRoutineRef(String value, String entryPoint, String routineName, MExprList args) {
 			super(value, args);
 			this.entryPoint = entryPoint;
 			this.routineName = routineName;
@@ -245,7 +222,7 @@ public abstract class MToken<T> implements Iterable<T> {
 	public static class MFxnRef extends MRef {
 		private String name;
 
-		public MFxnRef(String value, String name, MArgList args) {
+		public MFxnRef(String value, String name, MExprList args) {
 			super(value, args);
 			this.name = name;
 		}
@@ -254,7 +231,7 @@ public abstract class MToken<T> implements Iterable<T> {
 	public static class MGlobalRef extends MRef implements MAssignable {
 		private String name;
 
-		public MGlobalRef(String value, String name, MArgList args) {
+		public MGlobalRef(String value, String name, MExprList args) {
 			super(value, args);
 			this.name = name;
 		}
@@ -263,7 +240,7 @@ public abstract class MToken<T> implements Iterable<T> {
 		public Object eval(MContext ctx, MToken<?> parent) {
 			MMap global = ctx.getGlobal(this.name);
 			
-			MArgList args = getArgs();
+			MExprList args = getArgs();
 			if (args != null) {
 				for (MExprItem expr : args) {
 					Object eval = expr.eval(ctx, parent);
@@ -275,10 +252,10 @@ public abstract class MToken<T> implements Iterable<T> {
 		}
 		
 		@Override
-		public void set(MContext ctx, Object val, MToken<?> parent) {
+		public void set(MContext ctx, Object val, MToken parent) {
 			MMap var = ctx.getGlobal(this.name);
 			
-			MArgList args = getArgs();
+			MExprList args = getArgs();
 			if (args != null) {
 				for (MExprItem expr : args) {
 					Object eval = expr.eval(ctx, parent);
@@ -293,7 +270,7 @@ public abstract class MToken<T> implements Iterable<T> {
 	public static class MLocalVarRef extends MRef implements MAssignable {
 		private String name;
 
-		public MLocalVarRef(String value, String name, MArgList args) {
+		public MLocalVarRef(String value, String name, MExprList args) {
 			super(value, args);
 			this.name = name;
 		}
@@ -302,7 +279,7 @@ public abstract class MToken<T> implements Iterable<T> {
 		public Object eval(MContext ctx, MToken<?> parent) {
 			MMap local = ctx.getLocal(this.name);
 			
-			MArgList args = getArgs();
+			MExprList args = getArgs();
 			if (args != null) {
 				for (MExprItem expr : args) {
 					Object eval = expr.eval(ctx, parent);
@@ -317,7 +294,7 @@ public abstract class MToken<T> implements Iterable<T> {
 		public void set(MContext ctx, Object val, MToken<?> parent) {
 			MMap var = ctx.getLocal(this.name);
 			
-			MArgList args = getArgs();
+			MExprList args = getArgs();
 			if (args != null) {
 				for (MExprItem expr : args) {
 					Object eval = expr.eval(ctx, parent);
@@ -331,15 +308,9 @@ public abstract class MToken<T> implements Iterable<T> {
 	
 	// atoms ------------------------------------------------------------------
 	
-	public static class MExprAtom extends MExprItem {
+	public abstract static class MExprAtom extends MExprItem {
 		public MExprAtom(String value, int offset) {
 			super(value);
-		}
-	}
-	
-	public static class MExprLiteral extends MExprAtom {
-		public MExprLiteral(String value, int offset) {
-			super(value, offset);
 		}
 		
 		@Override
@@ -348,19 +319,31 @@ public abstract class MToken<T> implements Iterable<T> {
 		}
 	}
 	
-	public static class MExprStrLiteral extends MExprLiteral {
+	public static class MExprStrLiteral extends MExprAtom {
 		public MExprStrLiteral(String value, int offset) {
 			super(value, offset);
 		}
 	}
 	
-	public static class MExprNumLiteral extends MExprLiteral {
+	public static class MExprNumLiteral extends MExprAtom {
 		public MExprNumLiteral(String value, int offset) {
 			super(value, offset);
 		}
+		
+		@Override
+		public Object eval(MContext ctx, MToken<?> parent) {
+			return MParserUtils.evalNumericValue(getValue());
+		}
+	}
+	
+	public interface MLineItem {
+		public MLine getLine();
+		public String getValue();
+		public Object eval(MContext ctx, MToken<?> parent);
 	}
 	
 	public interface MAssignable {
 		public void set(MContext ctx, Object val, MToken<?> parent);
 	}
+
 }

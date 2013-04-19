@@ -2,6 +2,7 @@ package gov.va.cpe.vpr.m4j.mparser;
 
 import static gov.va.cpe.vpr.m4j.lang.MUMPS.$P;
 import gov.va.cpe.vpr.m4j.mparser.MToken.MExpr.MPostCondTruthValExpr;
+import gov.va.cpe.vpr.m4j.mparser.MToken.MLineItem;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class MCmd extends MToken<MToken<?>> {
+public class MCmd extends MToken<MToken<?>> implements MLineItem {
 	
 	public static final Set<String> COMMAND_SET = Collections
 			.unmodifiableSet(new HashSet<String>(Arrays.asList("B", "C", "D",
@@ -69,12 +70,18 @@ public class MCmd extends MToken<MToken<?>> {
 	private String cmdvalue;
 	private String cmdname;
 	private String cmd;
+	private MLine line;
 	
-	public MCmd(String cmdname, String cmdvalue, int offset) {
+	public MCmd(String cmdname, String cmdvalue, int offset, MLine line) {
 		super(cmdname + " " + ((cmdvalue == null) ? " " : cmdvalue), offset);
+		this.line = line;
 		this.cmdname = cmdname;
 		this.cmdvalue = cmdvalue;
 		this.cmd = $P(this.cmdname, ":", 1).toUpperCase();
+	}
+	
+	public MLine getLine() {
+		return line;
 	}
 	
 	public List<MToken<?>> getTokens() {
@@ -89,7 +96,6 @@ public class MCmd extends MToken<MToken<?>> {
 			offset = getValue().indexOf(pce, offset);
 		}
 		
-		ret.add(new MCmdName(cmd));
 		if (pce != null && !pce.isEmpty()) {
 			ret.add(new MPostCondTruthValExpr(pce, offset));
 		}
@@ -107,21 +113,15 @@ public class MCmd extends MToken<MToken<?>> {
 		return getTokens().iterator();
 	}
 	
-	public static class MCmdName extends MExprAtom {
-		public MCmdName(String value) {
-			super(value, 0);
-		}
-	}
-	
-	public static class MExprList extends MToken<MExpr> {
+	public static class MExprList extends MExprItem {
 		public MExprList(String value) {
 			super(value);
 			getExpressions();
 		}
 		
-		public List<MExpr> getExpressions() {
+		public List<MExprItem> getExpressions() {
 			if (this.children != null) return this.children;
-			List<MExpr> ret = new ArrayList<MExpr>();
+			List<MExprItem> ret = new ArrayList<MExprItem>();
 			int offset = 0;
 			
 			// parse the command expression list (comma delimited list of expressions)
@@ -139,17 +139,17 @@ public class MCmd extends MToken<MToken<?>> {
 	
 	public static class MCmdI extends MCmd {
 
-		public MCmdI(String cmdname, String cmdvalue, int offset) {
-			super(cmdname, cmdvalue, offset);
+		public MCmdI(String cmdname, String cmdvalue, int offset, MLine line) {
+			super(cmdname, cmdvalue, offset, line);
 		}
 		
 		@Override
 		public Object eval(MContext ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
-			MExprList list = findSubToken(this, MExprList.class, 1);
+			MExprList list = findSubToken(this, MExprList.class);
 			
-			for (MExpr expr : list) {
-				List<MExprItem> items = expr.getExprStack(); 
+			for (MExprItem expr : list) {
+				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.MToken.MExpr) expr).getExprStack(); 
 				for (int i = 0; i < items.size(); i++) {
 					MExprItem item = items.get(i);
 					if (item instanceof MExprOper) {
@@ -159,7 +159,7 @@ public class MCmd extends MToken<MToken<?>> {
 							MExprItem lhs = items.get(i-2);
 							
 							Object v1 = rhs.eval(ctx, this), v2 = lhs.eval(ctx, this);
-							System.out.println("Testing: " + v1 + "=" + v2);
+//							System.out.println("Testing: " + v1 + "=" + v2);
 							if ((v1 == null && v2 == null) || (v1 != null && v2 != null && v1.equals(v2))) {
 								return Boolean.TRUE;
 							}
@@ -173,17 +173,17 @@ public class MCmd extends MToken<MToken<?>> {
 	
 	public static class MCmdW extends MCmd {
 
-		public MCmdW(String cmdname, String cmdvalue, int offset) {
-			super(cmdname, cmdvalue, offset);
+		public MCmdW(String cmdname, String cmdvalue, int offset, MLine line) {
+			super(cmdname, cmdvalue, offset, line);
 		}
 		
 		@Override
 		public Object eval(MContext ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
-			MExprList list = findSubToken(this, MExprList.class, 1);
+			MExprList list = findSubToken(this, MExprList.class);
 			
-			for (MExpr expr : list) {
-				List<MExprItem> items = expr.getExprStack();
+			for (MExprItem expr : list) {
+				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.MToken.MExpr) expr).getExprStack();
 				
 				for (int i=0; i < items.size(); i++) {
 					MExprItem item = items.get(i);
@@ -219,17 +219,17 @@ public class MCmd extends MToken<MToken<?>> {
 	
 	public static class MCmdS extends MCmd {
 
-		public MCmdS(String cmdname, String cmdvalue, int offset) {
-			super(cmdname, cmdvalue, offset);
+		public MCmdS(String cmdname, String cmdvalue, int offset, MLine line) {
+			super(cmdname, cmdvalue, offset, line);
 		}
 		
 		@Override
 		public Object eval(MContext ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
-			MExprList list = findSubToken(this, MExprList.class, 1);
+			MExprList list = findSubToken(this, MExprList.class);
 			
-			for (MExpr expr : list) {
-				List<MExprItem> items = expr.getExprStack();
+			for (MExprItem expr : list) {
+				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.MToken.MExpr) expr).getExprStack();
 				for (int i = 0; i < items.size(); i++) {
 					MExprItem item = items.get(i);
 					if (item instanceof MExprOper) {
@@ -238,14 +238,17 @@ public class MCmd extends MToken<MToken<?>> {
 						MExprItem lhs = (items.size() > i && i >= 0) ? items.remove(i--) : null;
 						if (op.equals("=")) {
 							if (lhs instanceof MAssignable) {
-								System.out.println("Setting: " + lhs + " TO " + rhs.eval(ctx, this));
 								((MAssignable) lhs).set(ctx, rhs.eval(ctx, this), this);
 							}
 						} else if (op.equals("+")) {
 							Number val1 = MParserUtils.evalNumericValue(lhs.eval(ctx, this));
 							Number val2 = MParserUtils.evalNumericValue(rhs.eval(ctx, this));
 							double newval = val1.doubleValue()+val2.doubleValue();
-							items.add(i+1,new MExprNumLiteral(newval + "", -1));
+							if (newval % 1 == 0) {
+								items.add(i+1,new MExprNumLiteral(((int) newval) + "", -1));
+							} else {
+								items.add(i+1,new MExprNumLiteral(newval + "", -1));
+							}
 						} else {
 							throw new IllegalStateException("Unknown Operator: " + op);
 						}
@@ -259,22 +262,22 @@ public class MCmd extends MToken<MToken<?>> {
 	
 	public static class MCmdF extends MCmd {
 
-		public MCmdF(String cmdname, String cmdvalue, int offset) {
-			super(cmdname, cmdvalue, offset);
+		public MCmdF(String cmdname, String cmdvalue, int offset, MLine line) {
+			super(cmdname, cmdvalue, offset, line);
 		}
 		
 		@Override
 		public Object eval(MContext ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
-			MExprList list = findSubToken(this, MExprList.class, 1);
+			MExprList list = findSubToken(this, MExprList.class);
 
 			Integer incVal = null;
 			Integer incLimit = null;
 			MAssignable iteratorVal = null;
 			
 			// loop through the expressions to initalize the loop
-			for (MExpr expr : list) {
-				List<MExprItem> items = expr.getExprStack();
+			for (MExprItem expr : list) {
+				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.MToken.MExpr) expr).getExprStack();
 				for (int i = 0; i < items.size(); i++) {
 					MExprItem item = items.get(i);
 					if (item instanceof MExprOper) {
@@ -283,12 +286,13 @@ public class MCmd extends MToken<MToken<?>> {
 							MExprItem rhs = items.get(i-1);
 							MExprItem lhs = items.get(i-2);
 							if (lhs instanceof MAssignable) {
-								System.out.println("Initalizing: " + lhs + " TO " + rhs.eval(ctx, this));
+//								System.out.println("Initalizing: " + lhs + " TO " + rhs.eval(ctx, this));
 								iteratorVal = (MAssignable) lhs;
 								iteratorVal.set(ctx, rhs.eval(ctx, this), this);
 							}
 						}
 					} else if (item instanceof MExprParam) {
+						// TODO:this needs to be able to handle floating point values
 						if (incVal == null) {
 							incVal = Integer.parseInt(item.eval(ctx, this).toString());
 						} else if (incLimit == null) {
@@ -301,12 +305,12 @@ public class MCmd extends MToken<MToken<?>> {
 			
 			// now run the rest of the line x number of times
 			MLine line = (MLine) parent;
-			List<MToken<?>> lineRest = line.getTokens();
+			List<MLineItem> lineRest = line.getTokens();
 			int forLoopPos = line.getTokens().indexOf(this);
 			boolean stop = false;
 			for (;;) {
 				for (int i=forLoopPos+1; i != -1 && i < lineRest.size();i++ ) {
-					MToken<?> tok = lineRest.get(i);
+					MLineItem tok = lineRest.get(i);
 					if (tok instanceof MCmd) {
 						Object ret = tok.eval(ctx, this);
 						if (ret != null && (ret instanceof Boolean && ((Boolean) ret) == Boolean.FALSE)) {
@@ -339,14 +343,14 @@ public class MCmd extends MToken<MToken<?>> {
 	
 	public static class MCmdQ extends MCmd {
 
-		public MCmdQ(String cmdname, String cmdvalue, int offset) {
-			super(cmdname, cmdvalue, offset);
+		public MCmdQ(String cmdname, String cmdvalue, int offset, MLine line) {
+			super(cmdname, cmdvalue, offset, line);
 		}
 		
 		@Override
 		public Object eval(MContext ctx, MToken<?> parent) {
 			
-			MPostCondTruthValExpr tvexpr = findSubToken(this, MPostCondTruthValExpr.class, 1);
+			MPostCondTruthValExpr tvexpr = findSubToken(this, MPostCondTruthValExpr.class);
 			if (tvexpr != null) {
 				Object result = tvexpr.eval(ctx, this);
 				if (result != null && result instanceof Boolean) {
@@ -372,12 +376,22 @@ public class MCmd extends MToken<MToken<?>> {
 		}
 	}
 	
+	private static final <T extends MToken<?>> T findSubToken(MCmd tok, Class<T> clazz) {
+		return findSubToken(tok, clazz, -1);
+	}
+	
 	private static final <T extends MToken<?>> T findSubToken(MCmd tok, Class<T> clazz, int pos) {
 		T ret = null;
 		if (pos >= 0 && pos < tok.getTokens().size()) {
 			MToken<?> t = tok.getTokens().get(pos);
 			if (t != null && clazz.isAssignableFrom(t.getClass())) {
 				ret = (T) t;
+			}
+		} else if (pos == -1) {
+			for (MToken<?> t : tok.getTokens()) {
+				if (clazz.isAssignableFrom(t.getClass())) {
+					return (T) t;
+				}
 			}
 		}
 		return ret;
