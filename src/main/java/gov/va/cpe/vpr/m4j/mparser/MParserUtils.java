@@ -371,18 +371,18 @@ public abstract class MParserUtils {
 	/**
 	 * @return Returns a formatted string of the deep structure of an element, usefull for debugging.
 	 */
-	public static final String displayStructure(MToken<?> tok, int maxlevel) {
+	public static final String displayStructure(AbstractMToken<?> tok, int maxlevel) {
 		StringBuilder sb = new StringBuilder();
 		doDisplayStructure(tok, 0, maxlevel, sb);
 		return sb.toString();
 	}
 	
-	private static final void doDisplayStructure(MToken<?> tok, int level, int maxlevel, StringBuilder sb) {
+	private static final void doDisplayStructure(AbstractMToken<?> tok, int level, int maxlevel, StringBuilder sb) {
 		if (tok == null || level > maxlevel) return;
 		sb.append(tok.toString());
 		Iterator<?> itr = tok.iterator();
 		while (itr.hasNext() && level < maxlevel) {
-			MToken<?> t = (MToken<?>) itr.next();
+			AbstractMToken<?> t = (AbstractMToken<?>) itr.next();
 			sb.append("\n");
 			for (int i=0; i <= level; i++) sb.append("\t");
 			doDisplayStructure(t, level+1, maxlevel, sb);
@@ -396,13 +396,13 @@ public abstract class MParserUtils {
 	}
 
 	
-	private static final void doDisplayStructureAlt(MToken<?> tok, int curline, int level, int maxlevel, int sumoffset, StringBuilder sb) {
+	private static final void doDisplayStructureAlt(AbstractMToken<?> tok, int curline, int level, int maxlevel, int sumoffset, StringBuilder sb) {
 		if (tok == null || level > maxlevel) return;
 		String header = fixedWidthStr(curline+"", 3) + ":" + fixedWidthStr(tok.getClass().getSimpleName(), 12) + ":";
 		sb.append(header + fixedWidthStr(null, sumoffset+tok.getOffset()) + tok.getValue());
 		Iterator<?> itr = tok.iterator();
 		while (itr.hasNext() && level < maxlevel) {
-			MToken<?> t = (MToken<?>) itr.next();
+			AbstractMToken<?> t = (AbstractMToken<?>) itr.next();
 			sb.append("\n");
 			doDisplayStructureAlt(t, curline, level+1, maxlevel, sumoffset+tok.getOffset(), sb);
 		}

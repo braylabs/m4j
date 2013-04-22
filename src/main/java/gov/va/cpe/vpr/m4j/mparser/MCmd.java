@@ -1,7 +1,7 @@
 package gov.va.cpe.vpr.m4j.mparser;
 
 import static gov.va.cpe.vpr.m4j.lang.MUMPS.$P;
-import gov.va.cpe.vpr.m4j.mparser.MToken.MExpr.MPostCondTruthValExpr;
+import gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExpr.MPostCondTruthValExpr;
 import gov.va.cpe.vpr.m4j.mparser.MToken.MLineItem;
 
 import java.util.ArrayList;
@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class MCmd extends MToken<MToken<?>> implements MLineItem {
+public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<?>> {
 	
 	public static final Set<String> COMMAND_SET = Collections
 			.unmodifiableSet(new HashSet<String>(Arrays.asList("B", "C", "D",
@@ -149,7 +149,7 @@ public class MCmd extends MToken<MToken<?>> implements MLineItem {
 			MExprList list = findSubToken(this, MExprList.class);
 			
 			for (MExprItem expr : list) {
-				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.MToken.MExpr) expr).getExprStack(); 
+				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExpr) expr).getExprStack(); 
 				for (int i = 0; i < items.size(); i++) {
 					MExprItem item = items.get(i);
 					if (item instanceof MExprOper) {
@@ -183,7 +183,7 @@ public class MCmd extends MToken<MToken<?>> implements MLineItem {
 			MExprList list = findSubToken(this, MExprList.class);
 			
 			for (MExprItem expr : list) {
-				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.MToken.MExpr) expr).getExprStack();
+				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExpr) expr).getExprStack();
 				
 				for (int i=0; i < items.size(); i++) {
 					MExprItem item = items.get(i);
@@ -229,7 +229,7 @@ public class MCmd extends MToken<MToken<?>> implements MLineItem {
 			MExprList list = findSubToken(this, MExprList.class);
 			
 			for (MExprItem expr : list) {
-				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.MToken.MExpr) expr).getExprStack();
+				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExpr) expr).getExprStack();
 				for (int i = 0; i < items.size(); i++) {
 					MExprItem item = items.get(i);
 					if (item instanceof MExprOper) {
@@ -277,7 +277,7 @@ public class MCmd extends MToken<MToken<?>> implements MLineItem {
 			
 			// loop through the expressions to initalize the loop
 			for (MExprItem expr : list) {
-				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.MToken.MExpr) expr).getExprStack();
+				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExpr) expr).getExprStack();
 				for (int i = 0; i < items.size(); i++) {
 					MExprItem item = items.get(i);
 					if (item instanceof MExprOper) {
@@ -305,12 +305,12 @@ public class MCmd extends MToken<MToken<?>> implements MLineItem {
 			
 			// now run the rest of the line x number of times
 			MLine line = (MLine) parent;
-			List<MLineItem> lineRest = line.getTokens();
+			List<MLineItem<?>> lineRest = line.getTokens();
 			int forLoopPos = line.getTokens().indexOf(this);
 			boolean stop = false;
 			for (;;) {
 				for (int i=forLoopPos+1; i != -1 && i < lineRest.size();i++ ) {
-					MLineItem tok = lineRest.get(i);
+					MLineItem<?> tok = lineRest.get(i);
 					if (tok instanceof MCmd) {
 						Object ret = tok.eval(ctx, this);
 						if (ret != null && (ret instanceof Boolean && ((Boolean) ret) == Boolean.FALSE)) {

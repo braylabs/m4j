@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-public class MRoutine extends MToken<MLine> {
+public class MRoutine extends AbstractMToken<MLine> {
 	private static Pattern ROUTINE_HEADER_PATTERN = Pattern.compile("^([a-zA-Z][\\w]*?)\\^INT\\^1\\^[\\d]+,[\\d]+\\.[\\d]+\\^0.*$"); 
 
 	private Map<String,Integer> entryPointNames = new HashMap<String,Integer>();

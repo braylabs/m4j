@@ -2,7 +2,6 @@ package gov.va.cpe.vpr.m4j.mparser;
 
 import static gov.va.cpe.vpr.m4j.lang.MUMPS.$P;
 import gov.va.cpe.vpr.m4j.mparser.MCmd.MParseException;
-import gov.va.cpe.vpr.m4j.mparser.MToken.MExpr;
 import gov.va.cpe.vpr.m4j.mparser.MToken.MLineItem;
 
 import java.lang.reflect.Constructor;
@@ -10,7 +9,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public class MLine extends MToken<MLineItem> {
+public class MLine extends AbstractMToken<MLineItem<?>> {
 	private String label;
 	private int level=0;
 	private int index;
@@ -36,7 +35,7 @@ public class MLine extends MToken<MLineItem> {
 	}
 	
 	public Object eval(MContext ctx) {
-		for (MLineItem tok : getTokens()) {
+		for (MLineItem<?> tok : getTokens()) {
 			Object ret = tok.eval(ctx, this);
 			if (ret == null || (ret instanceof Boolean && ((Boolean) ret) == Boolean.FALSE)) {
 //				System.out.println("False Command eval, quit evaluating line....");
@@ -47,7 +46,7 @@ public class MLine extends MToken<MLineItem> {
 	}
 	
 	@Override
-	public Iterator<MLineItem> iterator() {
+	public Iterator<MLineItem<?>> iterator() {
 		return getTokens().iterator();
 	}
 	
@@ -55,14 +54,14 @@ public class MLine extends MToken<MLineItem> {
 	 * parse the line, determines how to organize/arrange the tokens into a higherarchy, essentially an abstract syntax tree (AST)
 	 * @throws MParseException 
 	 */
-	public List<MLineItem> getTokens() {
+	public List<MLineItem<?>> getTokens() {
 		// return cached copy if available
 		if (this.children != null) return this.children;
 		String line = getValue();
 		
 		// parse the line into string tokens
 		List<String> tokens = MParserUtils.tokenize(line, ' ');
-		List<MLineItem> ret = new ArrayList<MLineItem>();
+		List<MLineItem<?>> ret = new ArrayList<MLineItem<?>>();
 		
 		// loop through the tokens, keep track of the tokens line offset
 		int offset=0;
@@ -118,7 +117,7 @@ public class MLine extends MToken<MLineItem> {
 		return line.eval(ctx);
 	}
 	
-	public static class MComment extends MToken<String> implements MLineItem {
+	public static class MComment extends AbstractMToken<String> implements MLineItem<String> {
 		private MLine line;
 
 		public MComment(String comment, MLine line, int offset) {
@@ -132,7 +131,7 @@ public class MLine extends MToken<MLineItem> {
 		}
 	}
 
-	public static class MEntryPoint extends MToken<MExpr> implements MLineItem {
+	public static class MEntryPoint extends AbstractMToken<MExpr> implements MLineItem<MExpr> {
 		private String epname;
 		private MLine line;
 
