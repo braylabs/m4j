@@ -1,8 +1,9 @@
 package gov.va.cpe.vpr.m4j.mparser;
 
-import gov.va.cpe.vpr.m4j.MMap;
+import gov.va.cpe.vpr.m4j.mmap.MMap;
 import gov.va.cpe.vpr.m4j.mparser.MCmd.MExprList;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -247,7 +248,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 			if (args != null) {
 				for (MExprItem expr : args) {
 					Object eval = expr.eval(ctx, parent);
-					global = global.get(eval);
+					global = global.getNode((Serializable) eval);
 				}
 			}
 			
@@ -262,7 +263,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 			if (args != null) {
 				for (MExprItem expr : args) {
 					Object eval = expr.eval(ctx, parent);
-					var = var.get(eval);
+					var = var.getNode((Serializable) eval);
 				}
 			}
 			
@@ -286,7 +287,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 			if (args != null) {
 				for (MExprItem expr : args) {
 					Object eval = expr.eval(ctx, parent);
-					local = local.get(eval);
+					local = local.getNode((Serializable) eval);
 				}
 			}
 			
@@ -301,7 +302,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 			if (args != null) {
 				for (MExprItem expr : args) {
 					Object eval = expr.eval(ctx, parent);
-					var = var.get(eval);
+					var = var.getNode((Serializable) eval);
 				}
 			}
 			var.setValue(val);

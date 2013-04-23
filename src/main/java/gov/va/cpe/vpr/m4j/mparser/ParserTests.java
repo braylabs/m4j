@@ -11,7 +11,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
-import gov.va.cpe.vpr.m4j.MMap;
+import gov.va.cpe.vpr.m4j.mmap.MMap;
 import gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExpr;
 import gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExprItem;
 import gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExprOper;
