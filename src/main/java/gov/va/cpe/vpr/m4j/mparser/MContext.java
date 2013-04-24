@@ -18,6 +18,10 @@ public class MContext {
 	private Map<String, MMap> locals = new HashMap<String, MMap>();
 	private MVStore mvstore;
 	
+	public void setStore(MVStore store) {
+		this.mvstore = store;
+	}
+	
 	protected MVStore getStore() {
 		if (mvstore != null) return mvstore;
         String tmpdir = System.getProperty("java.io.tmpdir");

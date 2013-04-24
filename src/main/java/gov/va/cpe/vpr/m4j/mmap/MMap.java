@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import org.h2.mvstore.Cursor;
 import org.h2.mvstore.MVMap;
@@ -18,7 +19,7 @@ import org.h2.mvstore.MVStore;
 import com.fasterxml.jackson.core.JsonGenerator;
 
 public interface MMap<K extends Serializable & Comparable<K>, V extends Serializable> 
-	extends Map<K,V>, Map.Entry<K, V> { 
+	extends Map<K,V>, Map.Entry<K, V>, Comparable<MMap<K,V>> { 
 	
 	public String getName();
 	public K[] getPath();
@@ -93,6 +94,51 @@ public interface MMap<K extends Serializable & Comparable<K>, V extends Serializ
 		
 		protected abstract MMap<K,V> doGetNode(K... keys);
 		
+        public final boolean equals(Object o) {
+            if (!(o instanceof Map.Entry))
+                return false;
+            Map.Entry e = (Map.Entry)o;
+            Object k1 = getKey();
+            Object k2 = e.getKey();
+            if (k1 == k2 || (k1 != null && k1.equals(k2))) {
+                Object v1 = getValue();
+                Object v2 = e.getValue();
+                if (v1 == v2 || (v1 != null && v1.equals(v2)))
+                    return true;
+            }
+            return false;
+        }
+
+        public final int hashCode() {
+            return (key==null   ? 0 : key.hashCode()) ^
+                   (val==null ? 0 : val.hashCode());
+        }
+        
+		public int compare(K[] o1, K[] o2) {
+			if (o1 == o2) return 0;
+			if (o1 == null) return -1;
+			if (o2 == null) return 1;
+            int o1Len = o1.length;
+            int o2Len = o2.length;
+            
+			int len = Math.min(o1Len, o2Len);
+            for (int i = 0; i < len; i++) {
+            	if (o1[i] == null) return -1;
+            	if (o2[i] == null) return 1;
+            	int comp = o1[i].compareTo(o2[i]);
+                if (comp != 0) {
+                    return comp;
+                }
+            }
+            
+            return o1Len == o2Len ? 0 : o1Len < o2Len ? -1 : 1;
+		}
+		
+		@Override
+		public int compareTo(MMap<K, V> o) {
+			return compare(this.getPath(), o.getPath());
+		}
+		
 		// serialization stuff ----------------------------------------------------
 		public String toJSON() {
 			JsonGenerator gen = null;
@@ -103,6 +149,7 @@ public interface MMap<K extends Serializable & Comparable<K>, V extends Serializ
 		private void writeJSON(JsonGenerator gen) {
 		}
 		
+		@Override
 		public String toString() {
 			StringBuilder sb = new StringBuilder();
 			toString(sb);
@@ -182,17 +229,20 @@ public interface MMap<K extends Serializable & Comparable<K>, V extends Serializ
 			int keysize = getPath().length + 1;
 			K[] startkey = Arrays.copyOf(getPath(), keysize);
 			startkey = treedata.higherKey(startkey);
-			if (startkey != null) {
-				Iterator<K[]> curs = treedata.tailMap(startkey).keySet().iterator();
+			if (startkey != null && startkey.length >= keysize) {
 				K[] key = null;
+				Iterator<K[]> curs = treedata.tailMap(startkey).keySet().iterator();
+				
 				while (curs.hasNext()) {
 					key = curs.next();
 					if (key.length != keysize) break;
-					ret.add(getNode(key));
+//					ret.add(getNode(key));
+					ret.add(new TreeMMap<K,V>(this, getName(), key));
 				}
 				// no direct children, make a phantom node
 				if (ret.isEmpty() && key != null) { 
-					ret.add(new TreeMMap<K,V>(this, getName(), Arrays.copyOf(key, keysize)));
+					K[] phantomkey = Arrays.copyOf(key, keysize);
+					ret.add(new TreeMMap<K,V>(this, getName(), phantomkey));
 				}
 			}
 			return ret;
@@ -228,11 +278,11 @@ public interface MMap<K extends Serializable & Comparable<K>, V extends Serializ
 		
 		@Override
 		public Set<java.util.Map.Entry<String, String>> entrySet() {
-			Set<Entry<String,String>> ret = new HashSet<Entry<String, String>>();
+			Set<Entry<String,String>> ret = new TreeSet<Entry<String, String>>();
 			int keysize = getPath().length + 1;
 			String[] startkey = Arrays.copyOf(getPath(), keysize);
 			startkey = mvmap.higherKey(startkey);
-			if (startkey != null) {
+			if (startkey != null && startkey.length >= keysize) {
 				Cursor<String[]> curs = mvmap.keyIterator(startkey);
 				String[] key = null;
 				while (curs.hasNext()) {

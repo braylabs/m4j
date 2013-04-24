@@ -1,24 +1,29 @@
 package gov.va.cpe.vpr.m4j.mmap;
-import static org.junit.Assert.*;
-
-import java.io.File;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import gov.va.cpe.vpr.m4j.mmap.MMap.LocalMVar;
 import gov.va.cpe.vpr.m4j.mmap.MMap.MVStoreMMap;
+import gov.va.cpe.vpr.m4j.mmap.MMap.TreeMMap;
+
+import java.io.File;
 
 import org.h2.mvstore.MVStore;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 public class MMapTest {
 	
 	private MVStore mvstore;
+	private File tmpfile;
 
 	@Before
 	public void before() {
         String tmpdir = System.getProperty("java.io.tmpdir");
         if (!tmpdir.endsWith(File.separator)) tmpdir += File.separator;
-        File tmpfile = new File(tmpdir, "MMapTest.data");
+        tmpfile = new File(tmpdir, "MMapTest.data");
         tmpfile.deleteOnExit();
         if (tmpfile.exists()) tmpfile.delete();
      	mvstore = new MVStore.Builder().fileName(tmpfile.getAbsolutePath()).cacheSize(20).open();
@@ -87,6 +92,19 @@ public class MMapTest {
 		assertEquals("hello world", glob.getNode("bar").getNode("baz").getValue());
 		
 		System.out.println(glob);
+	}
+	
+	
+	@Test
+	public void testPatExample() {
+		MVStoreMMap map = new MVStoreMMap(mvstore, "pats");
+//		MMap map = new TreeMMap("pats");
+		
+		MMap<String,String> pat = map.getNode("229");
+		pat.getNode("name","first").setValue("Brian");
+		pat.getNode("name","last").setValue("Bray");
+		
+		System.out.println(map);
 	}
 
 }
