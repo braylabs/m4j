@@ -1,16 +1,19 @@
 package gov.va.cpe.vpr.m4j.mmap;
 
-import java.util.Set;
+import java.io.Serializable;
+import java.util.Iterator;
 import java.util.TreeMap;
+
+import org.h2.mvstore.MVMap;
+import org.h2.mvstore.MVStore;
 
 /**
  * TODO:
- * - re-add the MVStore peristent implementation
  * - add a toMap() method/mechanism
  * - add a size() mechanism
- * - add an interable mechanism
  * - do the $O,$D,$G implementations, see what else is needed
  * - in toString(), make it indent values like %G does
+ * - both MVar.data implementations are navigable map/map interfaces, can we take advantage of that and have more reuse?
  * @author brian
  *
  */
@@ -37,6 +40,10 @@ public abstract class MVar {
 		return (this.name == null) ? this.root.name : this.name;
 	}
 	
+	public String getFullName() {
+		return getName() + path.toString();
+	}
+	
 	public Object val() {
 		return doGetValue(this.path);
 	}
@@ -58,21 +65,28 @@ public abstract class MVar {
 	/* Returns this nodes value, same as get(null) */
 	public abstract Object doGetValue(MVarKey key);
 	public abstract Object doSetValue(MVarKey key, Object val);
-	public abstract boolean exists();
+	public abstract Object unset();
+	public abstract boolean isDefined();
+	public abstract boolean hasDescendents();
 	public abstract MVar get(MVarKey key);
-	protected abstract Set<MVarKey> keySet(); 
+	public abstract MVarKey nextKey();
+	public abstract MVarKey prevKey();
+	protected abstract Iterator<MVarKey> iterator(); 
 
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		if (exists()) {
+		if (isDefined()) {
 			sb.append(getName());
 			if (this.path.size() > 0) path.toString(sb);	
 			sb.append("=");
 			sb.append(val());
 		}
 		
-		for (MVarKey key : keySet()) {
+		
+		Iterator<MVarKey> itr = iterator();
+		while (itr.hasNext()) {
+			MVarKey key = itr.next();
 			if (sb.length() > 0) sb.append("\n");
 			sb.append(getName());
 			sb.append(key);
@@ -103,10 +117,35 @@ public abstract class MVar {
 		public MVar get(MVarKey key) {
 			return new TreeMVar((TreeMVar) this.root, key);
 		}
+		
+		@Override
+		public MVarKey nextKey() {
+			MVarKey tmp = this.path.append(null);
+			MVarKey next = data.higherKey(tmp);
+			if (next == null) return null;
+			
+			// if next node is at a higher level, return null (no more nodes on same level)
+			if (this.path.size() > next.size()) return null;
+			
+			// if next node is at a lower level, splice it to same level
+			return next.splice(this.path.size());
+		}
+		
+		@Override
+		public MVarKey prevKey() {
+			return null;
+		}
 
 		@Override
-		public boolean exists() {
+		public boolean isDefined() {
 			return data.containsKey(path);
+		}
+		
+		@Override
+		public boolean hasDescendents() {
+			MVarKey next = data.higherKey(this.path);
+			if (next == null) return false;
+			return next.before(this.path.append(null));
 		}
 		
 		@Override
@@ -115,21 +154,22 @@ public abstract class MVar {
 		}
 		
 		@Override
+		public Object unset() {
+			return data.remove(this.path);
+		}
+		
+		@Override
 		public Object doGetValue(MVarKey key) {
 			return data.get(key);
 		}
 		
 		@Override
-		protected Set<MVarKey> keySet() {
-			return data.subMap(this.path, false, this.path.append(null), false).keySet();
+		protected Iterator<MVarKey> iterator() {
+			return data.subMap(this.path, false, this.path.append(null), false).keySet().iterator();
 		}
-		
-		
-
-		
 	}
 	
-	public static class MVarKey implements Comparable<MVarKey> {
+	public static class MVarKey implements Comparable<MVarKey>,Serializable {
 		private Comparable[] keys;
 		
 		@SafeVarargs
@@ -139,6 +179,10 @@ public abstract class MVar {
 		
 		public int size() {
 			return keys.length;
+		}
+		
+		public Comparable getLastKey() {
+			return this.keys[this.keys.length-1];
 		}
 		
 		@Override
@@ -172,7 +216,9 @@ public abstract class MVar {
             	int comp = 0;
             	Comparable o1 = this.keys[i], o2 = o.keys[i];
             	
-            	if (o2 == null) {
+            	if (o1 == o2) {
+            		comp = 0; // includes both null
+            	} else if (o2 == null) {
             		comp = -1;
             	} else if (o1 == null) {
             		comp = 1;
@@ -209,6 +255,12 @@ public abstract class MVar {
 			Comparable[] tmp = new Comparable[this.keys.length + withkeys.length];
 			System.arraycopy(this.keys, 0, tmp, 0, this.keys.length);
 			System.arraycopy(withkeys, 0, tmp, keys.length, withkeys.length);
+			return new MVarKey(tmp);
+		}
+		
+		public MVarKey splice(int length) {
+			Comparable[] tmp = new Comparable[length];
+			System.arraycopy(this.keys, 0, tmp, 0, length);
 			return new MVarKey(tmp);
 		}
 		

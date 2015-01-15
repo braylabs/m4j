@@ -73,6 +73,8 @@ public class MVarTest {
 		// assert weird cases: empty string before a null character
 		assertTrue(MVarKey.valueOf("").before(MVarKey.valueOf('\0')));
 		
+		// problem case: null on the end was not .equal()?
+		assertEquals(MVarKey.valueOf("A",1,null), MVarKey.valueOf("A",1,null));
 	}
 	
 	@Test
@@ -84,32 +86,44 @@ public class MVarTest {
 	}
 	
 	@Test
-	public void test() {
-		// check empty var
-		MVar x = new MVar.TreeMVar("BEB");
+	public void testLocal() {
+		validate(new MVar.TreeMVar("BEB"));
+	}
+	
+	@Test
+	public void testGlobal() {
+		validate(new MVar.MVStoreMVar(mvstore, "BEB"));
+	}
+	
+	public void validate(MVar x) {
 		assertNull(x.val());
-		assertFalse(x.exists());
+		assertFalse(x.hasDescendents());
 		
-		
-		// set the value and a sub-value
-		x.set("FOO");
-		x.get("ORC",141.01,"A").set("BAR");
-		assertEquals("FOO", x.val());
-		assertTrue(x.exists());
-		assertEquals("BAR", x.val("ORC",141.01,"A"));
-		
-		
-		// setup some 3 sub-records
-		for (int i=0; i < 3; i++) {
-			x.get("ORC", 100, i).set(i);
-			for (String key : Arrays.asList("A","B","C")) {
-				x.get("ORC", 100, i, key).set(i + "-" + key);
-			}
+		// load all the keys
+		for (MVarKey key : keys) {
+			x.doSetValue(key, "X");
 		}
 		
-		System.out.println(x);
+		// isDefined()
+		assertTrue(x.get("ORC","A","BAR").isDefined());
+		assertFalse(x.isDefined());
 		
-		System.out.println("JUST The 100.1 rec");
-		System.out.println(x.get("ORC",100,1));
+		// hasDescendents()
+		assertTrue(x.hasDescendents());
+		assertFalse(x.get("ORC","A","BAR").hasDescendents());
+		assertTrue(x.get("ORC").hasDescendents());
+		
+		// names
+		assertEquals("BEB", x.getName());
+		assertEquals("BEB", x.get("ORC",141.01).getName());
+		assertEquals("BEB(\"ORC\",141.01)", x.get("ORC",141.01).getFullName());
+		
+		// next
+		assertNull(x.nextKey()); // inital key
+		assertEquals(MVarKey.valueOf("ORC", 200), x.get("ORC",141.01).nextKey());
+		assertEquals(MVarKey.valueOf("ORC", 200,"BAR", "A", "B"), x.get("ORC", 200, "BAR", "A", "A").nextKey()); // does not exist
+		assertEquals(null, x.get("ORC", 200, "BAR", "A").nextKey()); // no more in same level
+//		x.next()
+		System.out.println(x);
 	}
 }

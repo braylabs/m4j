@@ -2,6 +2,7 @@ package gov.va.cpe.vpr.m4j.lang;
 
 import gov.va.cpe.vpr.m4j.mmap.MMap;
 import gov.va.cpe.vpr.m4j.mmap.MVar;
+import gov.va.cpe.vpr.m4j.mmap.MVar.MVarKey;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -22,12 +23,9 @@ public class MUMPS {
 
 	/* TODO: Other ANSI-standard M functions to implement
 	 * GLobals (these need MMap to be finished first)
-	$Data()
-	$Get()
 	$Increment()
 	$NAme()
 	$Next()
-	$Order()
 	$Qlength()
 	$QSubscript()
 	$Query()
@@ -45,16 +43,94 @@ public class MUMPS {
 	$View()
 	*/
 	
-	public static final int $DATA(MVar variable, MVar target) {
-		return 0;
+	// $DATA function ---------------------------------------------------------
+	
+	public static final int $D(MVar variable) {
+		return $DATA(variable, null);
 	}
 	
+	public static final int $D(MVar variable, MVar target) {
+		return $DATA(variable, target);
+	}
+
+	public static final int $DATA(MVar variable) {
+		return $DATA(variable, null);
+	}
+
+	public static final int $DATA(MVar variable, MVar target) {
+		boolean hasData = variable.isDefined();
+		boolean hasDesc = variable.hasDescendents();
+		
+		int ret = 0;
+		if (hasData && hasDesc) ret=11;
+		else if (!hasData && hasDesc) ret=10;
+		else if (hasData) ret=1;
+		
+		if (target != null) {
+			target.set(ret);
+		}
+		return ret;
+	}
+	
+	// $GET function ----------------------------------------------------------
+
+	public static final Object $G(MVar variable) {
+		return $GET(variable, null);
+	}
+	
+	public static final Object $G(MVar variable, Object defaultVal) {
+		return $GET(variable, defaultVal);
+	}
+	
+	public static final Object $G(MVar variable, MVar defaultVal) {
+		return $GET(variable, defaultVal);
+	}
+
 	public static final Object $GET(MVar variable, Object defaultVal) {
+		if (variable.isDefined()) return variable.val();
+		return defaultVal;
+	}
+	
+	public static final Object $GET(MVar variable, MVar defaultVal) {
+		if (variable.isDefined()) return variable.val();
+
+		if (defaultVal != null && !defaultVal.isDefined()) throw new UndefinedVariableException(defaultVal); 
+		if (defaultVal != null) return defaultVal.val();
+		
 		return "";
 	}
 	
-	public static final Object $ORDER() {
-		return null;
+	// $ORDER function --------------------------------------------------------
+
+	public static final Object $O(MVar variable) {
+		return $ORDER(variable, 1, null);
+	}
+	
+	public static final Object $O(MVar variable, int direction) {
+		return $ORDER(variable, direction, null);
+	}
+	
+	public static final Object $O(MVar variable, int direction, MVar target) {
+		return $ORDER(variable, direction, target);
+	}
+	
+	public static final Object $ORDER(MVar variable, int direction) {
+		return $ORDER(variable, direction, null);
+	}
+	
+	public static final Object $ORDER(MVar variable, int direction, MVar target) {
+		MVarKey ret = null;
+		if (direction == 1) {
+			ret = variable.nextKey();
+		} else if (direction == -1) {
+			ret = variable.prevKey();
+		} else {
+			throw new IllegalArgumentException("Only 1 and -1 are allowed for direction value");
+		}
+		
+		if (target != null && ret != null) target.set(ret.getLastKey());
+		if (ret == null) return null;
+		return ret.getLastKey();
 	}
 	
 	
@@ -207,4 +283,13 @@ public class MUMPS {
 		if (str == null) return "";
 		return new StringBuffer(str).reverse().toString();
 	}
+	
+	// Exceptions -------------------------------------------------------------
+	
+	public static class UndefinedVariableException extends RuntimeException {
+		public UndefinedVariableException(MVar var) {
+			super("<UNDEFINED> *" + var.getFullName());
+		}
+	}
+	
 }
