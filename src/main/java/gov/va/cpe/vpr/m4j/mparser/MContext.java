@@ -12,6 +12,7 @@ import java.util.Map;
 
 import org.h2.mvstore.MVStore;
 
+// TODO: Rename to MProcess?
 public class MContext {
 	private PrintStream out = System.out;
 	private Map<String, MMap> globals = new HashMap<String, MMap>();

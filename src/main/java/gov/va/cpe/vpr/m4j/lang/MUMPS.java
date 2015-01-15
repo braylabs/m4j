@@ -1,5 +1,8 @@
 package gov.va.cpe.vpr.m4j.lang;
 
+import gov.va.cpe.vpr.m4j.mmap.MMap;
+import gov.va.cpe.vpr.m4j.mmap.MVar;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -41,6 +44,19 @@ public class MUMPS {
 	$Text()
 	$View()
 	*/
+	
+	public static final int $DATA(MVar variable, MVar target) {
+		return 0;
+	}
+	
+	public static final Object $GET(MVar variable, Object defaultVal) {
+		return "";
+	}
+	
+	public static final Object $ORDER() {
+		return null;
+	}
+	
 	
 	// $ASCII function --------------------------------------------------------
 	
