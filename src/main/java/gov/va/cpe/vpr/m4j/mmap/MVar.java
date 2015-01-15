@@ -100,6 +100,97 @@ public abstract class MVar {
 	
 	// subclasses -------------------------------------------------------------
 	
+	public static class MVStoreMVar extends MVar {
+		private MVMap<MVarKey, Serializable> data;
+
+		public MVStoreMVar(MVStore store, String name) {
+			super(name);
+			this.data = store.openMap(name);
+		}
+		
+		protected MVStoreMVar(MVStoreMVar root, MVarKey path) {
+			super(root, path);
+			this.data = root.data;
+		}
+		
+		@Override
+		public Object doGetValue(MVarKey key) {
+			return this.data.get(key);
+		}
+
+		@Override
+		public Object doSetValue(MVarKey key, Object val) {
+			return this.data.put(key, (Serializable) val);
+		}
+		
+		@Override
+		public Object unset() {
+			return this.data.remove(this.path);
+		}
+
+		@Override
+		public boolean isDefined() {
+			return this.data.containsKey(path);
+		}
+		
+		@Override
+		public boolean hasDescendents() {
+			MVarKey next = data.higherKey(this.path);
+			if (next == null) return false;
+			return (next.before(this.path.append(null)));
+		}
+
+		@Override
+		public MVar get(MVarKey key) {
+			return new MVStoreMVar(( MVStoreMVar) this.root, key);
+		}
+		
+		@Override
+		public MVarKey nextKey() {
+			MVarKey tmp = this.path.append(null);
+			MVarKey next = data.higherKey(tmp);
+			if (next == null) return null;
+			
+			// if next node is at a higher level, return null (no more nodes on same level)
+			if (this.path.size() > next.size()) return null;
+			
+			// if next node is at a lower level, splice it to same level
+			return next.splice(this.path.size());
+		}
+		
+		@Override
+		public MVarKey prevKey() {
+			return data.floorKey(this.path);
+		}
+
+		@Override
+		protected Iterator<MVarKey> iterator() {
+			final MVarKey stopAt = this.path.append(null);
+			final Iterator<MVarKey> itr = data.keyIterator(this.path);
+			
+			return new Iterator<MVarKey>() {
+				MVarKey last = null;
+				
+				@Override
+				public boolean hasNext() {
+					if (!itr.hasNext()) return false;
+					last = itr.next();
+					if (!last.before(stopAt)) last = null;
+					return last != null;
+				}
+
+				@Override
+				public MVarKey next() {
+					return last;
+				}
+
+				@Override
+				public void remove() {
+					itr.remove();
+				}};
+		}
+	}
+	
 	public static class TreeMVar extends MVar {
 		private TreeMap<MVarKey, Object> data = null;
 		

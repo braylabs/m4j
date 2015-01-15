@@ -2,12 +2,93 @@ package gov.va.cpe.vpr.m4j.lang;
 
 import static gov.va.cpe.vpr.m4j.lang.MUMPS.*;
 import static org.junit.Assert.*;
+import gov.va.cpe.vpr.m4j.mmap.MVar;
+import gov.va.cpe.vpr.m4j.mmap.MVar.TreeMVar;
 
 import org.junit.Test;
 
 public class MUMPSTests {
 	String str = "foo.bar.baz";
 	String d = ".";
+	
+	@Test
+	public void test$O() {
+		MVar var = new TreeMVar("A");
+		var.get("A").set(1);
+		var.get("B").set(2);
+		var.get("C").set(3);
+		
+		// root node (unscripted) is always null (TODO: double check with cache)
+		assertNull($O(var));
+		
+		// simple cases
+		assertEquals("B", $O(var.get("A")));
+		assertNull($O(var.get("C")));
+		
+		// with targer
+		$O(var.get("A"), 1, var.get("A","RESULTS"));
+		assertEquals("B", var.get("A", "RESULTS").val());
+		
+		// TODO: Test deep level does not jump up to shallow level
+		
+		// TODO: Test shallow level does not dive to deeper level
+		
+		// TODO: Test intermediate subscripts that don't exist stay at the same level
+		
+		// TODO: Test reverse direction
+		
+		// TODO: Test target parameter
+		
+		// TODO: Test against cache
+		
+	}
+	
+	@Test
+	public void test$D() {
+		MVar var = new TreeMVar("FOO");
+		
+		// check all the available values
+		assertEquals(0, $D(var));
+		var.set("FOO");
+		assertEquals(1, $D(var));
+		var.unset();
+		assertEquals(0, $D(var));
+		var.get(1,2,3).set("FOO");
+		assertEquals(10, $D(var));
+		var.set("FOO");
+		assertEquals(11, $D(var));
+		
+		// check writing return to a target variable
+		$D(var, var.get("RESULTS"));
+		assertEquals(11, var.val("RESULTS"));
+	}
+	
+	@Test
+	public void test$G() {
+		MVar var = new MVar.TreeMVar("FOO");
+		var.get(1,2,3).set("BAR");
+		
+		// undefined returns empty string
+		assertFalse(var.isDefined());
+		assertEquals("", $G(var));
+		
+		// defined variable returns its value
+		assertEquals("BAR", $G(var.get(1,2,3)));
+		
+		// undefined variable with a default value
+		assertEquals("ZZZ", $G(var, "ZZZ"));
+		
+		// undefined variable with a default variable
+		assertEquals("BAR", $G(var, var.get(1,2,3)));
+		
+		// undefined variable with undefined default variable == exception
+		try {
+			$G(var, var);
+			fail("Excepected exception");
+		} catch (UndefinedVariableException ex) {
+			// expected
+		}
+	}
 	
 	@Test
 	public void test$A() {

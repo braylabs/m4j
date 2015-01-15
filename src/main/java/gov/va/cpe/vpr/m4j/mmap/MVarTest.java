@@ -1,44 +1,69 @@
 package gov.va.cpe.vpr.m4j.mmap;
 
 import static org.junit.Assert.*;
+import gov.va.cpe.vpr.m4j.mmap.MMap.MVStoreMMap;
 import gov.va.cpe.vpr.m4j.mmap.MVar.MVarKey;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.TreeMap;
 
+import org.h2.mvstore.MVMap;
+import org.h2.mvstore.MVStore;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 public class MVarTest {
+	
+	private MVStore mvstore;
+	private File tmpfile;
 
+	@Before
+	public void before() {
+        String tmpdir = System.getProperty("java.io.tmpdir");
+        if (!tmpdir.endsWith(File.separator)) tmpdir += File.separator;
+        tmpfile = new File(tmpdir, "MVarTest.data");
+        tmpfile.deleteOnExit();
+        if (tmpfile.exists()) tmpfile.delete();
+     	mvstore = new MVStore.Builder().fileName(tmpfile.getAbsolutePath()).cacheSize(20).open();
+	}
+	
+	@After
+	public void after() {
+		mvstore.close();
+	}
+
+	MVarKey[] keys = new MVarKey[] {
+			new MVarKey("ORC"),
+			new MVarKey("ORC", 141.01),
+			new MVarKey("ORC", 141.01, '\0'), // same as Character.MIN_VALUE?
+			new MVarKey("ORC", 141.01, -100),
+			new MVarKey("ORC", 141.01, 0),
+			new MVarKey("ORC", 141.01, ""),
+			new MVarKey("ORC", 141.01, "0"),
+			new MVarKey("ORC", 141.01, 'F', 0),
+			new MVarKey("ORC", 141.01, "FOO", 0),
+			new MVarKey("ORC", 141.01, "FOO", "A"),
+			new MVarKey("ORC", 141.01, "FOOD"),
+			new MVarKey("ORC", 141.01, null),
+			new MVarKey("ORC", 200, "BAR"),
+			new MVarKey("ORC", 200, "BAR", "A", "B", "C", "D"),
+			new MVarKey("ORC", "A", "BAR"),
+			new MVarKey("ORC", "a", "FOO"),
+	};
+	
 	@Test
 	public void testMVarKeySort() {
-		MVarKey[] keys = new MVarKey[] {
-				new MVarKey("ORC"),
-				new MVarKey("ORC", 141.01),
-				new MVarKey("ORC", 141.01, '\0'), // same as Character.MIN_VALUE?
-				new MVarKey("ORC", 141.01, -100),
-				new MVarKey("ORC", 141.01, 0),
-				new MVarKey("ORC", 141.01, ""),
-				new MVarKey("ORC", 141.01, "0"),
-				new MVarKey("ORC", 141.01, 'F', 0),
-				new MVarKey("ORC", 141.01, "FOO", 0),
-				new MVarKey("ORC", 141.01, "FOO", "A"),
-				new MVarKey("ORC", 141.01, "FOOD"),
-				new MVarKey("ORC", 141.01, null),
-				new MVarKey("ORC", 200, "BAR"),
-				new MVarKey("ORC", 200, "BAR", "A"),
-				new MVarKey("ORC", "A", "BAR"),
-				new MVarKey("ORC", "a", "FOO"),
-		};
-		
+
 		// array was composed in expected sort order, should be the same after sort
 		MVarKey[] old = Arrays.copyOf(keys, keys.length);
 		Arrays.sort(keys);
 		assertEquals(keys,old);
 		
 		for (int i=0; i < keys.length; i++) {
-			System.out.println(keys[i]);
+//			System.out.println(keys[i]);
 			
 			// equals
 			assertTrue(keys[i].compareTo(keys[i]) == 0);
