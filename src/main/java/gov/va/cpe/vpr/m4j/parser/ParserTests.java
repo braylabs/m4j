@@ -1,27 +1,28 @@
-package gov.va.cpe.vpr.m4j.mparser;
+package gov.va.cpe.vpr.m4j.parser;
 
-import static gov.va.cpe.vpr.m4j.mparser.MParserUtils.evalNumericValue;
-import static gov.va.cpe.vpr.m4j.mparser.MParserUtils.infixToPostFix;
-import static gov.va.cpe.vpr.m4j.mparser.MParserUtils.parseRef;
-import static gov.va.cpe.vpr.m4j.mparser.MParserUtils.tokenize;
-import static gov.va.cpe.vpr.m4j.mparser.MParserUtils.tokenizeOps;
+import static gov.va.cpe.vpr.m4j.parser.MParserUtils.evalNumericValue;
+import static gov.va.cpe.vpr.m4j.parser.MParserUtils.infixToPostFix;
+import static gov.va.cpe.vpr.m4j.parser.MParserUtils.parseRef;
+import static gov.va.cpe.vpr.m4j.parser.MParserUtils.tokenize;
+import static gov.va.cpe.vpr.m4j.parser.MParserUtils.tokenizeOps;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
-import gov.va.cpe.vpr.m4j.mmap.MVar;
-import gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExpr;
-import gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExprItem;
-import gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExprOper;
-import gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExprStrLiteral;
-import gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MFxnRef;
-import gov.va.cpe.vpr.m4j.mparser.MCmd.MCmdI;
-import gov.va.cpe.vpr.m4j.mparser.MCmd.MCmdQ;
-import gov.va.cpe.vpr.m4j.mparser.MCmd.MCmdW;
-import gov.va.cpe.vpr.m4j.mparser.MLine.MEntryPoint;
-import gov.va.cpe.vpr.m4j.mparser.MToken.MLineItem;
+import gov.va.cpe.vpr.m4j.global.MVar;
+import gov.va.cpe.vpr.m4j.lang.MProcess;
+import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExpr;
+import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExprItem;
+import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExprOper;
+import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExprStrLiteral;
+import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MFxnRef;
+import gov.va.cpe.vpr.m4j.parser.MCmd.MCmdI;
+import gov.va.cpe.vpr.m4j.parser.MCmd.MCmdQ;
+import gov.va.cpe.vpr.m4j.parser.MCmd.MCmdW;
+import gov.va.cpe.vpr.m4j.parser.MLine.MEntryPoint;
+import gov.va.cpe.vpr.m4j.parser.MToken.MLineItem;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -47,7 +48,7 @@ public class ParserTests {
 	MRoutine vprj;
 	TestMContext ctx;
 	
-	public static class TestMContext extends MContext {
+	public static class TestMContext extends MProcess {
 		private ByteArrayOutputStream baos;
 
 		public TestMContext() {

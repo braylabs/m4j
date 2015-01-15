@@ -1,15 +1,17 @@
-package gov.va.cpe.vpr.m4j.mparser;
+package gov.va.cpe.vpr.m4j.parser;
+
+import gov.va.cpe.vpr.m4j.lang.MProcess;
 
 public interface MToken<T> extends Iterable<T> {
 	public abstract String getValue();
 	public abstract int getOffset();
-	public abstract Object eval(MContext ctx, MToken<?> parent);
+	public abstract Object eval(MProcess ctx, MToken<?> parent);
 	
 	public interface MLineItem<T> extends MToken<T> {
 		public MLine getLine();
 	}
 	
 	public interface MAssignable {
-		public void set(MContext ctx, Object val, MToken<?> parent);
+		public void set(MProcess ctx, Object val, MToken<?> parent);
 	}
 }

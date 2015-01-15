@@ -1,7 +1,8 @@
-package gov.va.cpe.vpr.m4j.mparser;
+package gov.va.cpe.vpr.m4j.parser;
 
-import gov.va.cpe.vpr.m4j.mmap.MVar;
-import gov.va.cpe.vpr.m4j.mparser.MCmd.MExprList;
+import gov.va.cpe.vpr.m4j.global.MVar;
+import gov.va.cpe.vpr.m4j.lang.MProcess;
+import gov.va.cpe.vpr.m4j.parser.MCmd.MExprList;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -32,7 +33,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 	}
 	
 	@Override
-	public Object eval(MContext ctx, MToken<?> parent) {
+	public Object eval(MProcess ctx, MToken<?> parent) {
 		// does nothing by default
 		return null;
 	}
@@ -130,7 +131,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 			}
 			
 			@Override
-			public Object eval(MContext ctx, MToken<?> parent) {
+			public Object eval(MProcess ctx, MToken<?> parent) {
 				List<MExprItem> items = getExprStack();
 				
 				for (int i=0; i < items.size(); i++) {
@@ -169,7 +170,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		}
 		
 		@Override
-		public Object eval(MContext ctx, MToken<?> parent) {
+		public Object eval(MProcess ctx, MToken<?> parent) {
 			if (this.children != null && this.children.size() == 1) {
 				return this.children.get(0).eval(ctx, parent);
 			}
@@ -240,7 +241,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		}
 		
 		@Override
-		public Object eval(MContext ctx, MToken<?> parent) {
+		public Object eval(MProcess ctx, MToken<?> parent) {
 			MVar global = ctx.getGlobal(this.name);
 			
 			MExprList args = getArgs();
@@ -255,7 +256,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		}
 		
 		@Override
-		public void set(MContext ctx, Object val, MToken<?> parent) {
+		public void set(MProcess ctx, Object val, MToken<?> parent) {
 			MVar var = ctx.getGlobal(this.name);
 			
 			MExprList args = getArgs();
@@ -279,7 +280,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		}
 
 		@Override
-		public Object eval(MContext ctx, MToken<?> parent) {
+		public Object eval(MProcess ctx, MToken<?> parent) {
 			MVar local = ctx.getLocal(this.name);
 			
 			MExprList args = getArgs();
@@ -294,7 +295,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		}
 		
 		@Override
-		public void set(MContext ctx, Object val, MToken<?> parent) {
+		public void set(MProcess ctx, Object val, MToken<?> parent) {
 			MVar var = ctx.getLocal(this.name);
 			
 			MExprList args = getArgs();
@@ -317,7 +318,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		}
 		
 		@Override
-		public Object eval(MContext ctx, MToken<?> parent) {
+		public Object eval(MProcess ctx, MToken<?> parent) {
 			return getValue();
 		}
 	}
@@ -334,7 +335,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		}
 		
 		@Override
-		public Object eval(MContext ctx, MToken<?> parent) {
+		public Object eval(MProcess ctx, MToken<?> parent) {
 			return MParserUtils.evalNumericValue(getValue());
 		}
 	}

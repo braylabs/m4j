@@ -1,8 +1,8 @@
-package gov.va.cpe.vpr.m4j.mmap;
+package gov.va.cpe.vpr.m4j.global;
 
 import static org.junit.Assert.*;
-import gov.va.cpe.vpr.m4j.mmap.MMap.MVStoreMMap;
-import gov.va.cpe.vpr.m4j.mmap.MVar.MVarKey;
+import gov.va.cpe.vpr.m4j.global.MMap.MVStoreMMap;
+import gov.va.cpe.vpr.m4j.global.MVar.MVarKey;
 
 import java.io.File;
 import java.util.Arrays;

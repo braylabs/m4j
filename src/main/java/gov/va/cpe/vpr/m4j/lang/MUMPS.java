@@ -1,8 +1,8 @@
 package gov.va.cpe.vpr.m4j.lang;
 
-import gov.va.cpe.vpr.m4j.mmap.MMap;
-import gov.va.cpe.vpr.m4j.mmap.MVar;
-import gov.va.cpe.vpr.m4j.mmap.MVar.MVarKey;
+import gov.va.cpe.vpr.m4j.global.MMap;
+import gov.va.cpe.vpr.m4j.global.MVar;
+import gov.va.cpe.vpr.m4j.global.MVar.MVarKey;
 
 import java.util.Arrays;
 import java.util.Collections;

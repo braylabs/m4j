@@ -1,8 +1,9 @@
-package gov.va.cpe.vpr.m4j.mparser;
+package gov.va.cpe.vpr.m4j.parser;
 
 import static gov.va.cpe.vpr.m4j.lang.MUMPS.$P;
-import gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExpr.MPostCondTruthValExpr;
-import gov.va.cpe.vpr.m4j.mparser.MToken.MLineItem;
+import gov.va.cpe.vpr.m4j.lang.MProcess;
+import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExpr.MPostCondTruthValExpr;
+import gov.va.cpe.vpr.m4j.parser.MToken.MLineItem;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -144,12 +145,12 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		}
 		
 		@Override
-		public Object eval(MContext ctx, MToken<?> parent) {
+		public Object eval(MProcess ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
 			MExprList list = findSubToken(this, MExprList.class);
 			
 			for (MExprItem expr : list) {
-				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExpr) expr).getExprStack(); 
+				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExpr) expr).getExprStack(); 
 				for (int i = 0; i < items.size(); i++) {
 					MExprItem item = items.get(i);
 					if (item instanceof MExprOper) {
@@ -178,12 +179,12 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		}
 		
 		@Override
-		public Object eval(MContext ctx, MToken<?> parent) {
+		public Object eval(MProcess ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
 			MExprList list = findSubToken(this, MExprList.class);
 			
 			for (MExprItem expr : list) {
-				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExpr) expr).getExprStack();
+				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExpr) expr).getExprStack();
 				
 				for (int i=0; i < items.size(); i++) {
 					MExprItem item = items.get(i);
@@ -224,12 +225,12 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		}
 		
 		@Override
-		public Object eval(MContext ctx, MToken<?> parent) {
+		public Object eval(MProcess ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
 			MExprList list = findSubToken(this, MExprList.class);
 			
 			for (MExprItem expr : list) {
-				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExpr) expr).getExprStack();
+				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExpr) expr).getExprStack();
 				for (int i = 0; i < items.size(); i++) {
 					MExprItem item = items.get(i);
 					if (item instanceof MExprOper) {
@@ -267,7 +268,7 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		}
 		
 		@Override
-		public Object eval(MContext ctx, MToken<?> parent) {
+		public Object eval(MProcess ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
 			MExprList list = findSubToken(this, MExprList.class);
 
@@ -277,7 +278,7 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 			
 			// loop through the expressions to initalize the loop
 			for (MExprItem expr : list) {
-				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExpr) expr).getExprStack();
+				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExpr) expr).getExprStack();
 				for (int i = 0; i < items.size(); i++) {
 					MExprItem item = items.get(i);
 					if (item instanceof MExprOper) {
@@ -348,7 +349,7 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		}
 		
 		@Override
-		public Object eval(MContext ctx, MToken<?> parent) {
+		public Object eval(MProcess ctx, MToken<?> parent) {
 			
 			MPostCondTruthValExpr tvexpr = findSubToken(this, MPostCondTruthValExpr.class);
 			if (tvexpr != null) {

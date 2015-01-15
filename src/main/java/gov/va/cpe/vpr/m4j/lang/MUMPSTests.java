@@ -2,8 +2,8 @@ package gov.va.cpe.vpr.m4j.lang;
 
 import static gov.va.cpe.vpr.m4j.lang.MUMPS.*;
 import static org.junit.Assert.*;
-import gov.va.cpe.vpr.m4j.mmap.MVar;
-import gov.va.cpe.vpr.m4j.mmap.MVar.TreeMVar;
+import gov.va.cpe.vpr.m4j.global.MVar;
+import gov.va.cpe.vpr.m4j.global.MVar.TreeMVar;
 
 import org.junit.Test;
 
@@ -30,6 +30,8 @@ public class MUMPSTests {
 		assertEquals("B", var.get("A", "RESULTS").val());
 		
 		// TODO: Test deep level does not jump up to shallow level
+		var = new TreeMVar("BEB");
+		var.get("FEE","FI","FO","FUM");
 		
 		// TODO: Test shallow level does not dive to deeper level
 		

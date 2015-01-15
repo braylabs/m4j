@@ -1,4 +1,4 @@
-package gov.va.cpe.vpr.m4j.mmap;
+package gov.va.cpe.vpr.m4j.global;
 
 import java.io.Serializable;
 import java.util.Iterator;

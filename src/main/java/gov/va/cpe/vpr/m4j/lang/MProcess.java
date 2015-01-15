@@ -1,6 +1,6 @@
-package gov.va.cpe.vpr.m4j.mparser;
+package gov.va.cpe.vpr.m4j.lang;
 
-import gov.va.cpe.vpr.m4j.mmap.MVar;
+import gov.va.cpe.vpr.m4j.global.MVar;
 
 import java.io.File;
 import java.io.OutputStream;
@@ -11,7 +11,7 @@ import java.util.Map;
 import org.h2.mvstore.MVStore;
 
 // TODO: Rename to MProcess?
-public class MContext {
+public class MProcess {
 	private PrintStream out = System.out;
 	private Map<String, MVar> globals = new HashMap<>();
 	private Map<String, MVar> locals = new HashMap<>();

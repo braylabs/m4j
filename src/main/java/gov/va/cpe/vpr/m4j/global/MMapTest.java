@@ -1,11 +1,11 @@
-package gov.va.cpe.vpr.m4j.mmap;
+package gov.va.cpe.vpr.m4j.global;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import gov.va.cpe.vpr.m4j.mmap.MMap.LocalMVar;
-import gov.va.cpe.vpr.m4j.mmap.MMap.MVStoreMMap;
-import gov.va.cpe.vpr.m4j.mmap.MMap.TreeMMap;
+import gov.va.cpe.vpr.m4j.global.MMap.LocalMVar;
+import gov.va.cpe.vpr.m4j.global.MMap.MVStoreMMap;
+import gov.va.cpe.vpr.m4j.global.MMap.TreeMMap;
 
 import java.io.File;
 

@@ -1,4 +1,4 @@
-package gov.va.cpe.vpr.m4j.mparser;
+package gov.va.cpe.vpr.m4j.parser;
 
 
 import java.io.BufferedReader;
