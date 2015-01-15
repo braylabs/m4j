@@ -7,11 +7,13 @@ import java.util.TreeMap;
 import org.h2.mvstore.MVMap;
 import org.h2.mvstore.MVStore;
 
+import com.intersys.globals.Connection;
+import com.intersys.globals.NodeReference;
+
 /**
  * TODO:
  * - add a toMap() method/mechanism
  * - add a size() mechanism
- * - do the $O,$D,$G implementations, see what else is needed
  * - in toString(), make it indent values like %G does
  * - both MVar.data implementations are navigable map/map interfaces, can we take advantage of that and have more reuse?
  * @author brian
@@ -258,6 +260,74 @@ public abstract class MVar {
 		protected Iterator<MVarKey> iterator() {
 			return data.subMap(this.path, false, this.path.append(null), false).keySet().iterator();
 		}
+	}
+	
+	public static class CacheMVar extends MVar {
+		private Connection conn;
+		private NodeReference ref;
+
+		public CacheMVar(Connection conn, String name) {
+			super(name);
+			this.conn = conn;
+			if (!conn.isConnected()) {
+				conn.connect();
+		    }
+			this.ref = this.conn.createNodeReference();
+		}
+
+		@Override
+		public Object doGetValue(MVarKey key) {
+			return ref.getObject(this.path.keys);
+		}
+
+		@Override
+		public Object doSetValue(MVarKey key, Object val) {
+			ref.set(val.toString(), key.keys);
+			return null;
+		}
+
+		@Override
+		public Object unset() {
+			ref.kill(this.path.keys);
+			return null;
+		}
+
+		@Override
+		public boolean isDefined() {
+			return ref.exists(this.path.keys);
+		}
+
+		@Override
+		public boolean hasDescendents() {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+		@Override
+		public MVar get(MVarKey key) {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		@Override
+		public MVarKey nextKey() {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		@Override
+		public MVarKey prevKey() {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		@Override
+		protected Iterator<MVarKey> iterator() {
+			// TODO Auto-generated method stub
+			return null;
+		}
+		
+		
 	}
 	
 	public static class MVarKey implements Comparable<MVarKey>,Serializable {

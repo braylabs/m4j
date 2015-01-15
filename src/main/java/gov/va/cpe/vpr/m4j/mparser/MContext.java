@@ -1,8 +1,6 @@
 package gov.va.cpe.vpr.m4j.mparser;
 
-import gov.va.cpe.vpr.m4j.mmap.MMap;
-import gov.va.cpe.vpr.m4j.mmap.MMap.LocalMVar;
-import gov.va.cpe.vpr.m4j.mmap.MMap.MVStoreMMap;
+import gov.va.cpe.vpr.m4j.mmap.MVar;
 
 import java.io.File;
 import java.io.OutputStream;
@@ -15,8 +13,8 @@ import org.h2.mvstore.MVStore;
 // TODO: Rename to MProcess?
 public class MContext {
 	private PrintStream out = System.out;
-	private Map<String, MMap> globals = new HashMap<String, MMap>();
-	private Map<String, MMap> locals = new HashMap<String, MMap>();
+	private Map<String, MVar> globals = new HashMap<>();
+	private Map<String, MVar> locals = new HashMap<>();
 	private MVStore mvstore;
 	
 	public void setStore(MVStore store) {
@@ -31,16 +29,16 @@ public class MContext {
      	return mvstore = new MVStore.Builder().fileName(tmpfile.getAbsolutePath()).cacheSize(20).open();
 	}
 	
-	public MMap getGlobal(String name) {
+	public MVar getGlobal(String name) {
 		if (!globals.containsKey(name)) {
-			globals.put(name, new MVStoreMMap(mvstore, name));
+			globals.put(name, new MVar.MVStoreMVar(mvstore, name));
 		}
 		return globals.get(name);
 	}
 	
-	public MMap getLocal(String name) {
+	public MVar getLocal(String name) {
 		if (!locals.containsKey(name)) {
-			locals.put(name, new LocalMVar(name));
+			locals.put(name, new MVar.TreeMVar(name));
 		}
 		return locals.get(name);
 	}

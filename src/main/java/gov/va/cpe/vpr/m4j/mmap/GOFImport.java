@@ -49,7 +49,7 @@ public class GOFImport {
 		
 		String line = reader.readLine();
 		List<String> toks = null;
-		MMap map = null;
+		MVar map = null;
 		int count = 0;
 		while (line != null && count < limit) {
 			if (!line.startsWith("^")) {
@@ -69,13 +69,12 @@ public class GOFImport {
 			// now parse the value and set it
 			String val = reader.readLine();
 			System.out.println("Write: " + toks + ": " + val);
-			map.getNode(toks.toArray(new String[0])).setValue(val);
+			map.get(toks.toArray(new String[0])).set(val);
 			line = reader.readLine();
 			count++;
 		}
 		mvstore.commit();
-		System.out.println("SIZE: " + map.size());
-		System.out.println(map.getNode("loincdb","urn:lnc:100-8"));
+		System.out.println(map.get("loincdb","urn:lnc:100-8"));
 		mvstore.close();
 	}
 }

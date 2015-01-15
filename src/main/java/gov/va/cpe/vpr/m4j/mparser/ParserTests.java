@@ -11,7 +11,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
-import gov.va.cpe.vpr.m4j.mmap.MMap;
+import gov.va.cpe.vpr.m4j.mmap.MVar;
 import gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExpr;
 import gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExprItem;
 import gov.va.cpe.vpr.m4j.mparser.AbstractMToken.MExprOper;
@@ -26,6 +26,7 @@ import gov.va.cpe.vpr.m4j.mparser.MToken.MLineItem;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -88,6 +89,8 @@ public class ParserTests {
 	
 	@Test
 	public void testParseRoutineName() {
+		
+		
 		
 		// regular names
 		assertEquals("foo", MParserUtils.parseRoutineName("foo"));
@@ -570,9 +573,9 @@ public class ParserTests {
 		assertEquals("\nhello world\n", ctx.toString());
 		
 		// check context has the local vars
-		MMap foo = ctx.getLocal("FOO");
-		assertEquals("hello", foo.getValue("bar"));
-		assertEquals("world", foo.getValue("baz"));
+		MVar foo = ctx.getLocal("FOO");
+		assertEquals("hello", foo.val("bar"));
+		assertEquals("world", foo.val("baz"));
 	}
 	
 	@Test
@@ -590,7 +593,7 @@ public class ParserTests {
 		line = new MLine(m, 0);
 		line.eval(ctx);
 		assertEquals("xxxxx", ctx.toString());
-		assertEquals(6, ctx.getLocal("I").getValue());
+		assertEquals(6, ctx.getLocal("I").val());
 	}
 	
 	@Test 
@@ -604,8 +607,15 @@ public class ParserTests {
 
 	@Test
 	public void testParseWholeRO() throws IOException {
-		File jds = new File("c:/data/hmp/hmp-main/src/main/mumps/jds.ro");
+		
+		// couple examples of header lines, make sure the regex gets them both
+		assertTrue("VPRJ1^INT^1^63404;43618^0".matches(MRoutine.ROUTINE_HEADER_PATTERN));
+		assertTrue("VPRJ^INT^1^62896,42379.33251^0".matches(MRoutine.ROUTINE_HEADER_PATTERN));
+		
+		// parse the included RO, should be 91 routines currently
+		File jds = new File("lib/jds-0.7-S68-SNAPSHOT.ro");
+		if (!jds.exists()) throw new FileNotFoundException();
 		List<MRoutine> routines = MRoutine.parseRoutineOutputFile(new FileInputStream(jds));
-		assertEquals(69, routines.size());
+		assertEquals(91, routines.size());
 	}
 }

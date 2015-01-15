@@ -16,7 +16,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 public class MRoutine extends AbstractMToken<MLine> {
-	private static Pattern ROUTINE_HEADER_PATTERN = Pattern.compile("^([a-zA-Z][\\w]*?)\\^INT\\^1\\^[\\d]+,[\\d]+\\.[\\d]+\\^0.*$"); 
+	public static String ROUTINE_HEADER_PATTERN = "^([a-zA-Z][\\w]*?)\\^INT\\^1\\^[\\w\\.\\,\\;]+\\^0.*$"; 
 
 	private Map<String,Integer> entryPointNames = new HashMap<String,Integer>();
 	private Map<Integer,String> entryPointLines = new HashMap<Integer,String>(); 
@@ -152,7 +152,7 @@ public class MRoutine extends AbstractMToken<MLine> {
 		
 		// Read the file line-by-line
 		for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-			if (line.matches(ROUTINE_HEADER_PATTERN.pattern())) {
+			if (line.matches(ROUTINE_HEADER_PATTERN)) {
 				if (buff != null) {
 					ret.add(new MRoutine(buff));
 				} 

@@ -1,9 +1,8 @@
 package gov.va.cpe.vpr.m4j.mparser;
 
-import gov.va.cpe.vpr.m4j.mmap.MMap;
+import gov.va.cpe.vpr.m4j.mmap.MVar;
 import gov.va.cpe.vpr.m4j.mparser.MCmd.MExprList;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -242,32 +241,32 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		
 		@Override
 		public Object eval(MContext ctx, MToken<?> parent) {
-			MMap global = ctx.getGlobal(this.name);
+			MVar global = ctx.getGlobal(this.name);
 			
 			MExprList args = getArgs();
 			if (args != null) {
 				for (MExprItem expr : args) {
 					Object eval = expr.eval(ctx, parent);
-					global = global.getNode((Serializable) eval);
+					global = global.get((Comparable<?>) eval);
 				}
 			}
 			
-			return global.getValue();
+			return global.val();
 		}
 		
 		@Override
 		public void set(MContext ctx, Object val, MToken<?> parent) {
-			MMap var = ctx.getGlobal(this.name);
+			MVar var = ctx.getGlobal(this.name);
 			
 			MExprList args = getArgs();
 			if (args != null) {
 				for (MExprItem expr : args) {
 					Object eval = expr.eval(ctx, parent);
-					var = var.getNode((Serializable) eval);
+					var = var.get((Comparable<?>) eval);
 				}
 			}
 			
-			var.setValue(val);
+			var.set(val);
 		}
 	}
 	
@@ -281,31 +280,31 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 
 		@Override
 		public Object eval(MContext ctx, MToken<?> parent) {
-			MMap local = ctx.getLocal(this.name);
+			MVar local = ctx.getLocal(this.name);
 			
 			MExprList args = getArgs();
 			if (args != null) {
 				for (MExprItem expr : args) {
 					Object eval = expr.eval(ctx, parent);
-					local = local.getNode((Serializable) eval);
+					local = local.get((Comparable<?>) eval);
 				}
 			}
 			
-			return local.getValue();
+			return local.val();
 		}
 		
 		@Override
 		public void set(MContext ctx, Object val, MToken<?> parent) {
-			MMap var = ctx.getLocal(this.name);
+			MVar var = ctx.getLocal(this.name);
 			
 			MExprList args = getArgs();
 			if (args != null) {
 				for (MExprItem expr : args) {
 					Object eval = expr.eval(ctx, parent);
-					var = var.getNode((Serializable) eval);
+					var = var.get((Comparable<?>) eval);
 				}
 			}
-			var.setValue(val);
+			var.set(val);
 		}
 	}
 
