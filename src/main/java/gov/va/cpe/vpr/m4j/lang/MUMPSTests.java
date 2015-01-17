@@ -12,6 +12,45 @@ public class MUMPSTests {
 	String d = ".";
 	
 	@Test
+	public void test$I() {
+		MVar var = new TreeMVar("FOO");
+		
+		// Undefined is defined as 0
+		assertFalse(var.isDefined());
+		assertEquals(0, $I(var, 0));
+		assertTrue(var.isDefined());
+		assertEquals(0, var.val());
+		
+		// no increment param is treated as 1
+		assertEquals(1, $I(var));
+		
+		// decrement back to 0
+		assertEquals(0, $I(var,-1));
+		
+		// if either is a decimal, return a decimal
+		assertEquals(1.1, $I(var, 1.1));
+		
+		// string values should work too!
+		var.set("1");
+		assertEquals(2.1, $I(var, "1.1"));
+		
+		// and exponential values
+		var.set("1E3");
+		assertEquals(2000, $I(var, "1E3"));
+		
+		// null string is zero
+		var.set("");
+		assertEquals(0, $I(var,""));
+		
+		// non-canatonical numbers are ok too!
+		var.set("0123.2100");
+		assertEquals(123.21, $I(var,"+000000"));
+		
+		
+	}
+	
+	
+	@Test
 	public void test$O() {
 		MVar var = new TreeMVar("A");
 		var.get("A").set(1);

@@ -12,7 +12,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import gov.va.cpe.vpr.m4j.global.MVar;
-import gov.va.cpe.vpr.m4j.lang.MProcess;
+import gov.va.cpe.vpr.m4j.lang.M4JRuntime.M4JProcess;
 import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExpr;
 import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExprItem;
 import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExprOper;
@@ -48,10 +48,11 @@ public class ParserTests {
 	MRoutine vprj;
 	TestMContext ctx;
 	
-	public static class TestMContext extends MProcess {
+	public static class TestMContext extends M4JProcess {
 		private ByteArrayOutputStream baos;
 
 		public TestMContext() {
+			super(null);
 			// capture output in a string instead of to System.out
 			baos = new ByteArrayOutputStream();
 			setOutputStream(baos);
@@ -339,6 +340,7 @@ public class ParserTests {
 		assertEquals(1.1, evalNumericValue("1.1"));
 		assertEquals(0.1, evalNumericValue("0.1"));
 		assertEquals(1d, evalNumericValue("1.0"));
+		assertEquals(1, evalNumericValue("+1"));
 		
 		// already numeric values
 		assertEquals(10, evalNumericValue(new Integer(10)));
@@ -352,6 +354,10 @@ public class ParserTests {
 		// border cases
 		assertEquals(0, evalNumericValue(""));
 		assertEquals(0, evalNumericValue(null));
+		
+		// non-canatonical
+		assertEquals(123.0, evalNumericValue("0000123.000"));
+		assertEquals(123.12, evalNumericValue("+00123.12000"));
 	}
 	
 	@Test

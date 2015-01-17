@@ -1,8 +1,8 @@
 package gov.va.cpe.vpr.m4j.lang;
 
-import gov.va.cpe.vpr.m4j.global.MMap;
 import gov.va.cpe.vpr.m4j.global.MVar;
 import gov.va.cpe.vpr.m4j.global.MVar.MVarKey;
+import gov.va.cpe.vpr.m4j.parser.MParserUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -42,6 +42,57 @@ public class MUMPS {
 	$Text()
 	$View()
 	*/
+	
+	/**
+	 * Returns the MUMPS style date of "ddddd,sssss" which represents 
+	 * the number of days since December 31, 1840, where day 1 is January 1, 1841 and sssss represents 
+	 * the number of seconds since midnight of the current day 
+	 * 
+	 * TODO: implement this
+	 * 
+	 * @return
+	 */
+	public static final MVar $HOROLOG() {
+		return new MVar.TreeMVar("$HOROLOG", "63568,56134");
+	}
+	
+	// $INCREMENT function ----------------------------------------------------
+
+	public static final Number $I(MVar variable) {
+		return $INCREMENT(variable, null);
+	}
+
+	public static final Number $I(MVar variable, Object num) {
+		return $INCREMENT(variable, num);
+	}
+
+	
+	public static final Number $INCREMENT(MVar variable) {
+		return $INCREMENT(variable, null);
+	}
+	
+	/**
+	 * TODO: Make this an atomic increment by using a lock on the variable?
+	 * TODO: is this properly preserving type (integer, double, string, etc.) should it?
+	 */
+	public static final Number $INCREMENT(MVar variable, Object num) {
+		Number val = (variable.isDefined()) ? MParserUtils.evalNumericValue(variable.val()) : 0;
+		Number inc = (num == null) ? 1 : MParserUtils.evalNumericValue(num);
+		
+		Number ret = null;
+		double d = val.doubleValue() + inc.doubleValue();
+		int i = val.intValue() + inc.intValue();
+		if (i == d) {
+			ret = new Integer(i);
+		} else {
+			ret = new Double(d);
+		}
+		
+		// update the variable and return
+		variable.set(ret);
+		
+		return ret;
+	}
 	
 	// $DATA function ---------------------------------------------------------
 	

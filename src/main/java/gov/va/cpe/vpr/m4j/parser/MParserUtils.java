@@ -167,7 +167,7 @@ public abstract class MParserUtils {
 	}
 	
 	/**
-	 * Parse a routine name from the beginning of the line, must be alphanumeric with a starting letter or '%'
+	 * Parse a routine name/entry point from the beginning of the line, must be alphanumeric with a starting letter or '%'
 	 * @return The name of the matched routine name or null if no routine name was found
 	 */
 	public static final String parseRoutineName(String line) {
@@ -255,6 +255,8 @@ public abstract class MParserUtils {
 		if (str.startsWith("-")) {
 			str = str.substring(1);
 			mult = -1f;
+		} else if (str.startsWith("+")) {
+			str = str.substring(1);
 		}
 		if (str.indexOf('E') > 0 || str.indexOf('e') > 0) {
 			String[] split = str.split("[eE]");
@@ -262,7 +264,7 @@ public abstract class MParserUtils {
 			if (split[1].indexOf('.') > 0) isFloat = true;
 			mult *= Math.pow(10, Float.parseFloat(split[1]));
 		}
-
+		
 		// now go through the characters, when we encounter the first non-numeric character, ignore the rest
 		for (int i=0; i < str.length(); i++) {
 			char c = str.charAt(i);
@@ -275,10 +277,13 @@ public abstract class MParserUtils {
 			}
 		}
 		
+		
 		// should be a parsable number now
 		if (isFloat) {
 			return Double.parseDouble(str)*mult;
 		} 
+		
+		// parse and return as integer
 		return Integer.parseInt(str)*Math.round(mult);
 		
 	}
