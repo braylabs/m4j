@@ -1,6 +1,9 @@
 package gov.va.cpe.vpr.m4j.parser;
 
 
+import gov.va.cpe.vpr.m4j.lang.M4JRuntime.M4JProcess;
+import gov.va.cpe.vpr.m4j.lang.RoutineProxy;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -15,11 +18,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-public class MRoutine extends AbstractMToken<MLine> {
+public class MRoutine extends AbstractMToken<MLine> implements RoutineProxy {
 	public static String ROUTINE_HEADER_PATTERN = "^([a-zA-Z][\\w]*?)\\^INT\\^1\\^[\\w\\.\\,\\;]+\\^0.*$"; 
 
-	private Map<String,Integer> entryPointNames = new HashMap<String,Integer>();
-	private Map<Integer,String> entryPointLines = new HashMap<Integer,String>(); 
+	protected Map<String,Integer> entryPointNames = new HashMap<String,Integer>();
 	private List<String> content; // the original raw content
 	private String name;
 	
@@ -33,15 +35,31 @@ public class MRoutine extends AbstractMToken<MLine> {
 	protected void init() {
 		this.children = new ArrayList<MLine>();
 		
-		// index the entrypoints in this routine
+		// index the entry point locations in this routine
 		for (int i=0; i < content.size(); i++) {
 			children.add(i, null); // empty lines cache
 			String name = MParserUtils.parseRoutineName(content.get(i));
 			if (name != null) {
 				entryPointNames.put(name, i);
-				entryPointLines.put(i, name);
 			}
 		}
+	}
+	
+	@Override
+	public Object call(String name, String entrypoint, M4JProcess proc, Object... params) {
+		// get the lines to start evaluation at (evaluate
+		Iterator<MLine> itr = getEntryPointLines(entrypoint);
+		
+		// run each line one at a time until we get a quit
+		while (itr.hasNext()) {
+			MLine line = itr.next();
+			
+			
+			line.eval(proc);
+		}
+		
+		// TODO: How to return?
+		return null;
 	}
 	
 	/**
@@ -49,9 +67,13 @@ public class MRoutine extends AbstractMToken<MLine> {
 	 */
 	@Override
 	public Iterator<MLine> iterator() {
+		return iterator(0);
+	}
+	
+	public Iterator<MLine> iterator(final int startAt) {
 		final List<String> iterable = this.content;
 		return new Iterator<MLine>() {
-			int idx = 0;
+			int idx = startAt;
 			
 			@Override
 			public boolean hasNext() {
@@ -98,26 +120,14 @@ public class MRoutine extends AbstractMToken<MLine> {
 		return entryPointNames.keySet();
 	}
 	
-	public List<MLine> getEntryPointLines() {
-		return getEntryPointLines(null);
-	}
-	
-	public List<MLine> getEntryPointLines(String entryPoint) {
-		// use the routine name as the default
-		if (entryPoint == null) entryPoint = getName();
+	public Iterator<MLine> getEntryPointLines(String entryPoint) {
+		if (entryPoint == null) return iterator(); // null== start a the top
 		
 		// throw an error if it doesn't exist
 		if (!entryPointNames.containsKey(entryPoint)) {
 			throw new IllegalArgumentException("Entrypoint: " + entryPoint + " does not exist in routine: " + getName());
 		}
-		
-		// collect all the lines that belong to the entry point
-		List<MLine> ret = new ArrayList<MLine>();
-		int i=entryPointNames.get(entryPoint);
-		do {
-			ret.add(getLine(i++));
-		} while(i < children.size() && !entryPointLines.containsKey(i));
-		return ret;
+		return iterator(entryPointNames.get(entryPoint));
 	}
 	
 	/**

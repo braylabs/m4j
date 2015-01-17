@@ -16,6 +16,7 @@ import com.intersys.globals.NodeReference;
  * - add a size() mechanism
  * - in toString(), make it indent values like %G does
  * - both MVar.data implementations are navigable map/map interfaces, can we take advantage of that and have more reuse?
+ * - lock for the variable for atomic operations?
  * @author brian
  *
  */
@@ -58,6 +59,7 @@ public abstract class MVar {
 		return get(this.path.append(keys));
 	}
 	
+	/* set the nodes value, return the new value */
 	public Object set(Object val) {
 		return doSetValue(this.path, val);
 	}
@@ -122,7 +124,8 @@ public abstract class MVar {
 
 		@Override
 		public Object doSetValue(MVarKey key, Object val) {
-			return this.data.put(key, (Serializable) val);
+			this.data.put(key, (Serializable) val);
+			return val;
 		}
 		
 		@Override
@@ -201,6 +204,12 @@ public abstract class MVar {
 			this.data = new TreeMap<>();
 		}
 		
+		public TreeMVar(String name, Object val) {
+			super(name);
+			this.data = new TreeMap<>();
+			set(val);
+		}
+		
 		protected TreeMVar(TreeMVar root, MVarKey path) {
 			super(root, path);
 			this.data = root.data;
@@ -243,7 +252,8 @@ public abstract class MVar {
 		
 		@Override
 		public Object doSetValue(MVarKey key, Object val) {
-			return data.put(key, val);
+			data.put(key, val);
+			return val;
 		}
 		
 		@Override

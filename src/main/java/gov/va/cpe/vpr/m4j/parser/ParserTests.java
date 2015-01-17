@@ -31,8 +31,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -489,7 +491,7 @@ public class ParserTests {
 		
 		// check that the entrypoint lines are named, the rest of the lines are not
 		for (String name : names) {
-			MLine mline = vprj.getEntryPointLines(name).get(0);
+			MLine mline = vprj.getEntryPointLines(name).next();
 			int idx = mline.getIndex(); 
 			assertSame(mline, vprj.getLine(idx));
 			
@@ -504,7 +506,9 @@ public class ParserTests {
 	public void testMRoutineStructure() {
 		MCmd cmd;
 		
-		List<MLine> isyes = vprj.getEntryPointLines("ISYES");
+		Iterator<MLine> itr = vprj.getEntryPointLines("ISYES");
+		List<MLine> isyes = new ArrayList<>();
+		while (itr.hasNext()) isyes.add(itr.next());
 		assertEquals(8, isyes.size());
 		
 		// L0 is: ISYES(MSG) ; returns 1 if user answers yes to message, otherwise 0
@@ -553,6 +557,29 @@ public class ParserTests {
 		assertEquals(MCmdQ.class, l5.get(0).getClass());
 		cmd = (MCmd) l5.get(0);
 		assertEquals("Q 0", cmd.getValue());
+	}
+	
+	@Test
+	public void testMRoutineEntrypoint() {
+		// first line of entrypoint=null should be line 1
+		assertSame(vprj.getLine(0), vprj.getEntryPointLines(null).next());
+		
+		// therefore getEntryPointLines(null) should be identical to all lines
+		Iterator<MLine> itr = vprj.getEntryPointLines(null);
+		for (int i=0; i < vprj.children.size(); i++) {
+			assertSame(vprj.getLine(i),itr.next());
+		}
+		
+		// entry points dont necessarily quit/return and are from an entry point to the bottom of routine
+		// check that each entry point starts contains all the line minus the start line index.
+		int lineCount = vprj.getLineCount();
+		for (String ep : vprj.getEntryPointNames()) {
+			int startIdx = vprj.entryPointNames.get(ep);
+			List<MLine> allLines = new ArrayList<>();
+			for (itr = vprj.getEntryPointLines(ep); itr.hasNext();) allLines.add(itr.next());
+			
+			assertEquals((lineCount - startIdx), allLines.size());
+		}
 	}
 	
 	@Test
@@ -606,8 +633,9 @@ public class ParserTests {
 	@Test 
 	@Ignore
 	public void testISYESStructure() throws IOException {
-		List<MLine> lines = vprj.getEntryPointLines("STOP");
-		for (MLine line : lines) {
+		Iterator<MLine> lines = vprj.getEntryPointLines("STOP");
+		while (lines.hasNext()) {
+			MLine line = lines.next();
 			System.out.println(MParserUtils.displayStructure(line, 10));
 		}
 	}
