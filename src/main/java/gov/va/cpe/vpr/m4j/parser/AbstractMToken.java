@@ -1,7 +1,7 @@
 package gov.va.cpe.vpr.m4j.parser;
 
 import gov.va.cpe.vpr.m4j.global.MVar;
-import gov.va.cpe.vpr.m4j.lang.MProcess;
+import gov.va.cpe.vpr.m4j.lang.M4JRuntime.M4JProcess;
 import gov.va.cpe.vpr.m4j.parser.MCmd.MExprList;
 
 import java.util.ArrayList;
@@ -33,7 +33,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 	}
 	
 	@Override
-	public Object eval(MProcess ctx, MToken<?> parent) {
+	public Object eval(M4JProcess ctx, MToken<?> parent) {
 		// does nothing by default
 		return null;
 	}
@@ -131,7 +131,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 			}
 			
 			@Override
-			public Object eval(MProcess ctx, MToken<?> parent) {
+			public Object eval(M4JProcess ctx, MToken<?> parent) {
 				List<MExprItem> items = getExprStack();
 				
 				for (int i=0; i < items.size(); i++) {
@@ -170,7 +170,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		}
 		
 		@Override
-		public Object eval(MProcess ctx, MToken<?> parent) {
+		public Object eval(M4JProcess ctx, MToken<?> parent) {
 			if (this.children != null && this.children.size() == 1) {
 				return this.children.get(0).eval(ctx, parent);
 			}
@@ -241,7 +241,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		}
 		
 		@Override
-		public Object eval(MProcess ctx, MToken<?> parent) {
+		public Object eval(M4JProcess ctx, MToken<?> parent) {
 			MVar global = ctx.getGlobal(this.name);
 			
 			MExprList args = getArgs();
@@ -256,7 +256,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		}
 		
 		@Override
-		public void set(MProcess ctx, Object val, MToken<?> parent) {
+		public void set(M4JProcess ctx, Object val, MToken<?> parent) {
 			MVar var = ctx.getGlobal(this.name);
 			
 			MExprList args = getArgs();
@@ -280,7 +280,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		}
 
 		@Override
-		public Object eval(MProcess ctx, MToken<?> parent) {
+		public Object eval(M4JProcess ctx, MToken<?> parent) {
 			MVar local = ctx.getLocal(this.name);
 			
 			MExprList args = getArgs();
@@ -295,7 +295,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		}
 		
 		@Override
-		public void set(MProcess ctx, Object val, MToken<?> parent) {
+		public void set(M4JProcess ctx, Object val, MToken<?> parent) {
 			MVar var = ctx.getLocal(this.name);
 			
 			MExprList args = getArgs();
@@ -318,7 +318,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		}
 		
 		@Override
-		public Object eval(MProcess ctx, MToken<?> parent) {
+		public Object eval(M4JProcess ctx, MToken<?> parent) {
 			return getValue();
 		}
 	}
@@ -335,7 +335,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 		}
 		
 		@Override
-		public Object eval(MProcess ctx, MToken<?> parent) {
+		public Object eval(M4JProcess ctx, MToken<?> parent) {
 			return MParserUtils.evalNumericValue(getValue());
 		}
 	}

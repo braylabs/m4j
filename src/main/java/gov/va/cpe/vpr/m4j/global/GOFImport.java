@@ -1,6 +1,6 @@
 package gov.va.cpe.vpr.m4j.global;
 
-import gov.va.cpe.vpr.m4j.lang.MProcess;
+import gov.va.cpe.vpr.m4j.lang.M4JProcess;
 import gov.va.cpe.vpr.m4j.parser.MParserUtils;
 
 import java.io.BufferedReader;
@@ -35,7 +35,7 @@ public class GOFImport {
 		
 		if (store != null && file != null) {
 			mvstore = new MVStore.Builder().fileName(store.getAbsolutePath()).cacheSize(20).open();
-			MProcess ctx = new MProcess();
+			M4JProcess ctx = new M4JProcess();
 			ctx.setStore(mvstore);
 			loadFile(file, rowLimit, ctx);
 //			MVStoreTool.dump(store.getAbsolutePath(), new PrintWriter(System.out));
@@ -44,7 +44,7 @@ public class GOFImport {
 		}
 	}
 
-	private static void loadFile(File f, int limit, MProcess ctx) throws IOException {
+	private static void loadFile(File f, int limit, M4JProcess ctx) throws IOException {
 		BufferedReader reader = new BufferedReader(new FileReader(f));
 		
 		String line = reader.readLine();

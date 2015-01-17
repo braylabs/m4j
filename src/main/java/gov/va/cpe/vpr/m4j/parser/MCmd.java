@@ -1,7 +1,7 @@
 package gov.va.cpe.vpr.m4j.parser;
 
 import static gov.va.cpe.vpr.m4j.lang.MUMPS.$P;
-import gov.va.cpe.vpr.m4j.lang.MProcess;
+import gov.va.cpe.vpr.m4j.lang.M4JRuntime.M4JProcess;
 import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExpr.MPostCondTruthValExpr;
 import gov.va.cpe.vpr.m4j.parser.MToken.MLineItem;
 
@@ -145,7 +145,7 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		}
 		
 		@Override
-		public Object eval(MProcess ctx, MToken<?> parent) {
+		public Object eval(M4JProcess ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
 			MExprList list = findSubToken(this, MExprList.class);
 			
@@ -179,7 +179,7 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		}
 		
 		@Override
-		public Object eval(MProcess ctx, MToken<?> parent) {
+		public Object eval(M4JProcess ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
 			MExprList list = findSubToken(this, MExprList.class);
 			
@@ -225,7 +225,7 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		}
 		
 		@Override
-		public Object eval(MProcess ctx, MToken<?> parent) {
+		public Object eval(M4JProcess ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
 			MExprList list = findSubToken(this, MExprList.class);
 			
@@ -268,7 +268,7 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		}
 		
 		@Override
-		public Object eval(MProcess ctx, MToken<?> parent) {
+		public Object eval(M4JProcess ctx, MToken<?> parent) {
 			// convert the expression list to postfix for evaluation
 			MExprList list = findSubToken(this, MExprList.class);
 
@@ -349,7 +349,7 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		}
 		
 		@Override
-		public Object eval(MProcess ctx, MToken<?> parent) {
+		public Object eval(M4JProcess ctx, MToken<?> parent) {
 			
 			MPostCondTruthValExpr tvexpr = findSubToken(this, MPostCondTruthValExpr.class);
 			if (tvexpr != null) {

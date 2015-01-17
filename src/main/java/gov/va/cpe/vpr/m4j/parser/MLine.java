@@ -1,7 +1,7 @@
 package gov.va.cpe.vpr.m4j.parser;
 
 import static gov.va.cpe.vpr.m4j.lang.MUMPS.$P;
-import gov.va.cpe.vpr.m4j.lang.MProcess;
+import gov.va.cpe.vpr.m4j.lang.M4JRuntime.M4JProcess;
 import gov.va.cpe.vpr.m4j.parser.MCmd.MParseException;
 import gov.va.cpe.vpr.m4j.parser.MToken.MLineItem;
 
@@ -35,7 +35,7 @@ public class MLine extends AbstractMToken<MLineItem<?>> {
 		return this.label;
 	}
 	
-	public Object eval(MProcess ctx) {
+	public Object eval(M4JProcess ctx) {
 		for (MLineItem<?> tok : getTokens()) {
 			Object ret = tok.eval(ctx, this);
 			if (ret == null || (ret instanceof Boolean && ((Boolean) ret) == Boolean.FALSE)) {
@@ -113,7 +113,7 @@ public class MLine extends AbstractMToken<MLineItem<?>> {
 	/**
 	 * Convienience method for evaluating a single M line
 	 */
-	public static Object eval(String mline, MProcess ctx) {
+	public static Object eval(String mline, M4JProcess ctx) {
 		MLine line = new MLine(mline,1);
 		return line.eval(ctx);
 	}
