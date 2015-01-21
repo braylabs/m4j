@@ -7,6 +7,7 @@ import gov.va.cpe.vpr.m4j.parser.MParserUtils;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.StringTokenizer;
@@ -54,6 +55,19 @@ public class MUMPS {
 	 */
 	public static final MVar $HOROLOG() {
 		return new MVar.TreeMVar("$HOROLOG", "63568,56134");
+	}
+	
+	public static final int $L(Object variable, Object delim) {
+		if (variable == null) return 0;
+		if (delim == null) return 1;
+		
+		// evaluate as string
+		String str = variable.toString();
+
+		HashSet<String> s = new HashSet<>();
+		s.add(delim.toString());
+		List<String> ret = MParserUtils.tokenize(str, s, false, false, false, false, false);
+		return ret.size();
 	}
 	
 	// $INCREMENT function ----------------------------------------------------
