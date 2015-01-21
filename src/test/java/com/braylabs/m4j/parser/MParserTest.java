@@ -21,8 +21,8 @@ public class MParserTest {
 		assertEquals(TokenType.NUM_LITERAL, getTokenType(".1", null));
 		
 		// does not match
-		assertEquals(TokenType.UNKNOWN, getTokenType("zero", null));
-		assertEquals(TokenType.UNKNOWN, getTokenType(".", null));
+		assertEquals(TokenType.REF, getTokenType("zero", null));
+		assertEquals(TokenType.LINE_INDENT, getTokenType(".", null));
 		
 		// with exponentials
 		assertEquals(TokenType.NUM_LITERAL, getTokenType("1e3", null));
@@ -59,7 +59,7 @@ public class MParserTest {
 		assertEquals(TokenType.COMMAND, getTokenType("Q:FOO", null));
 		
 		// non-commands
-		assertEquals(TokenType.UNKNOWN, getTokenType("FOO", null));
+		assertEquals(TokenType.REF, getTokenType("FOO", null));
 	}
 	
 }

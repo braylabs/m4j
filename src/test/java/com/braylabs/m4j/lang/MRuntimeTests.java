@@ -1,32 +1,24 @@
 package com.braylabs.m4j.lang;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.net.URL;
-import java.util.List;
 
 import org.junit.Before;
 import org.junit.Test;
 
-import com.braylabs.m4j.lang.M4JRuntime;
-import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
 import com.braylabs.m4j.lang.RoutineProxy.JavaClassProxy.M4JEntryPoint;
 import com.braylabs.m4j.lang.RoutineProxy.JavaClassProxy.M4JRoutine;
-import com.braylabs.m4j.parser.MLine;
-import com.braylabs.m4j.parser.MRoutine;
-import com.braylabs.m4j.parser.ParserTests;
 import com.braylabs.m4j.parser.MCmd.MParseException;
-import com.braylabs.m4j.parser.MToken.MLineItem;
-import com.braylabs.m4j.parser.ParserTests.TestMContext;
+import com.braylabs.m4j.parser.MLineTests;
+import com.braylabs.m4j.parser.MRoutine;
 
 public class MRuntimeTests {
 	
-	private TestMContext ctx;
+	private MLineTests.TestMContext ctx;
 	private M4JRuntime runtime;
 
 	@Before
@@ -35,7 +27,7 @@ public class MRuntimeTests {
 		runtime.registerRoutine(MyFirstM4JRoutine.class);
 		File f = new File(MRuntimeTests.class.getResource("XLFSTR.int").toURI());
 		runtime.registerRoutine(MRoutine.parseFromFile(f));
-		ctx = new ParserTests.TestMContext(runtime);
+		ctx = new MLineTests.TestMContext(runtime);
 	}
 
 	@M4JRoutine(name="HELLO")
