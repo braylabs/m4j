@@ -5,23 +5,26 @@ import static gov.va.cpe.vpr.m4j.parser.MParserUtils.infixToPostFix;
 import static gov.va.cpe.vpr.m4j.parser.MParserUtils.parseRef;
 import static gov.va.cpe.vpr.m4j.parser.MParserUtils.tokenize;
 import static gov.va.cpe.vpr.m4j.parser.MParserUtils.tokenizeOps;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static gov.va.cpe.vpr.m4j.parser.MParserUtils.strContains;
+import static gov.va.cpe.vpr.m4j.parser.MParserUtils.getTokenType;
+import static org.junit.Assert.*;
 import gov.va.cpe.vpr.m4j.global.MVar;
+import gov.va.cpe.vpr.m4j.lang.M4JRuntime;
 import gov.va.cpe.vpr.m4j.lang.M4JRuntime.M4JProcess;
 import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExpr;
 import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExprItem;
 import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExprOper;
 import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExprStrLiteral;
 import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MFxnRef;
+import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MLocalVarRef;
 import gov.va.cpe.vpr.m4j.parser.MCmd.MCmdI;
+import gov.va.cpe.vpr.m4j.parser.MCmd.MCmdN;
 import gov.va.cpe.vpr.m4j.parser.MCmd.MCmdQ;
 import gov.va.cpe.vpr.m4j.parser.MCmd.MCmdW;
+import gov.va.cpe.vpr.m4j.parser.MCmd.MParseException;
+import gov.va.cpe.vpr.m4j.parser.MLine.MComment;
 import gov.va.cpe.vpr.m4j.parser.MLine.MEntryPoint;
+import gov.va.cpe.vpr.m4j.parser.MParserUtils.TokenType;
 import gov.va.cpe.vpr.m4j.parser.MToken.MLineItem;
 
 import java.io.ByteArrayOutputStream;
@@ -54,7 +57,11 @@ public class ParserTests {
 		private ByteArrayOutputStream baos;
 
 		public TestMContext() {
-			super(null);
+			this(null);
+		}
+		
+		public TestMContext(M4JRuntime runtime) {
+			super(runtime,0);
 			// capture output in a string instead of to System.out
 			baos = new ByteArrayOutputStream();
 			setOutputStream(baos);
@@ -394,6 +401,29 @@ public class ParserTests {
 	}
 	
 	@Test
+	public void testStrContains() {
+		// matches
+		assertTrue(strContains("abc", 'c'));
+		assertTrue(strContains("1,2,3", '2'));
+		assertTrue(strContains("1,2,3", ','));
+		assertTrue(strContains("abc", 'a','b','c'));
+		
+		// no match due to being inside quotes or parens
+		assertFalse(strContains("FOO(1,2,3)", ','));
+		assertFalse(strContains("FOO(1,2,3)", '1'));
+		assertFalse(strContains("\"ABC\"", 'A'));
+
+		// border cases
+		assertFalse(strContains(null, '\0'));
+		assertFalse(strContains("", '\0'));
+		assertFalse(strContains(""));
+		
+		// real world: check for operators in the expression (outside parens)
+		assertTrue(strContains("1+2", MCmd.ALL_OPERATOR_CHARS));
+		assertFalse(strContains("FOO(1+2)", MCmd.ALL_OPERATOR_CHARS));
+	}
+	
+	@Test
 	public void testParseRef() {
 		String[] strs;
 		
@@ -410,6 +440,54 @@ public class ParserTests {
 		assertEquals("FOO", strs[1]);
 		assertEquals("BAR", strs[2]);
 		assertEquals(null, strs[3]);
+
+		// $$FOO^BAR
+		strs = parseRef("$$FOO^BAR");
+		assertEquals("$$", strs[0]);
+		assertEquals("FOO", strs[1]);
+		assertEquals("BAR", strs[2]);
+		assertEquals(null, strs[3]);
+
+		// $$FOO
+		strs = parseRef("$$FOO");
+		assertEquals("$$", strs[0]);
+		assertEquals("FOO", strs[1]);
+		assertEquals(null, strs[2]);
+		assertEquals(null, strs[3]);
+
+		// $$FOO^BAR()
+		strs = parseRef("$$FOO^BAR()");
+		assertEquals("$$", strs[0]);
+		assertEquals("FOO", strs[1]);
+		assertEquals("BAR", strs[2]);
+		assertEquals(null, strs[3]);
+		
+		// ^BAR
+		strs = parseRef("^BAR");
+		assertEquals("^", strs[0]);
+		assertEquals("BAR", strs[1]);
+		assertEquals(null, strs[2]);
+		assertEquals(null, strs[3]);
+		
+		// ^BAR()
+		strs = parseRef("^BAR()");
+		assertEquals("^", strs[0]);
+		assertEquals("BAR", strs[1]);
+		assertEquals(null, strs[2]);
+		assertEquals(null, strs[3]);
+		
+		// % is valid local variable name
+		strs = parseRef("%");
+		assertEquals(null, strs[0]);
+		assertEquals("%", strs[1]);
+		assertEquals(null, strs[2]);
+		assertEquals(null, strs[3]);
+		
+		strs = parseRef("%(A)");
+		assertEquals(null, strs[0]);
+		assertEquals("%", strs[1]);
+		assertEquals(null, strs[2]);
+		assertEquals("A", strs[3]);
 
 		// entry point call 
 		strs = parseRef("$$FOO(baz)");
@@ -459,6 +537,26 @@ public class ParserTests {
 		assertEquals("G", strs[1]);
 		assertEquals(null, strs[2]);
 		assertEquals("^VPRHTTP($G(foo),\"listener\")", strs[3]);
+		
+		// expressions as args are ok
+		strs = parseRef("$G(A+B,1+2)");
+		assertEquals("$", strs[0]);
+		assertEquals("G", strs[1]);
+		assertEquals(null, strs[2]);
+		assertEquals("A+B,1+2", strs[3]);
+
+		// expression should not work
+		assertNull(parseRef("A+B"));
+		assertNull(parseRef("A,B,C"));
+		assertNull(parseRef("'A"));
+		assertNull(parseRef("$$FOO^BAR(X)=1"));
+		
+		// should not match literals
+		assertNull(parseRef("\"FOO\""));
+		assertNull(parseRef("+1"));
+		assertNull(parseRef("-1"));
+		assertNull(parseRef("1E4"));
+
 	}
 	
 	@Test
@@ -478,8 +576,8 @@ public class ParserTests {
 		assertNotNull(vprj.getLine(152));
 		
 		// test offset vs index
-		assertEquals(152, vprj.getLine(152).getIndex());
-		assertEquals(0, vprj.getLine(152).getOffset());
+		assertEquals(152, vprj.getLine(152).getOffset());
+//		assertEquals(0, vprj.getLine(152).getOffset());
 		
 		// check entrypoint index
 		Set<String> names = vprj.getEntryPointNames();
@@ -492,13 +590,16 @@ public class ParserTests {
 		// check that the entrypoint lines are named, the rest of the lines are not
 		for (String name : names) {
 			MLine mline = vprj.getEntryPointLines(name).next();
-			int idx = mline.getIndex(); 
+			int idx = mline.getOffset(); 
 			assertSame(mline, vprj.getLine(idx));
 			
 			// name should be the same, the next line should not be named
 			assertEquals(name, mline.getLabel());
 			assertNull(vprj.getLine(idx+1).getLabel());
 		}
+		
+		// check entrypoint params
+		
 	}
 		
 		
@@ -520,7 +621,7 @@ public class ParserTests {
 		// L1 is: N X
 		List<MLineItem<?>> l1 = isyes.get(1).getTokens();
 		assertEquals(1, l1.size());
-		assertEquals(MCmd.class, l1.get(0).getClass());
+		assertEquals(MCmdN.class, l1.get(0).getClass());
 		cmd = (MCmd) l1.get(0);
 		assertEquals("N X", cmd.getValue());
 		
@@ -595,11 +696,11 @@ public class ParserTests {
 	}
 	
 	@Test
-	public void testExecHelloWorld() {
+	public void testExecHelloWorld() throws MParseException {
 		// the first command
 		String m = " S FOO(\"bar\")=\"hello\",FOO(\"baz\")=\"world\" I FOO(\"bar\")=\"hello\" W !,FOO(\"bar\")_\" \"_FOO(\"baz\"),! ; should write hello world";
-		MLine line = new MLine(m, 0);
-		line.eval(ctx);
+		MLine line = new MLine(m);
+		line.eval(ctx, null);
 		
 //		System.out.println(MParserUtils.displayStructure(line, 100));
 		
@@ -613,36 +714,105 @@ public class ParserTests {
 	}
 	
 	@Test
-	public void testExecForLoop() {
-		// test the incremetal form
-		String m = " W !,\"Waiting 5 Secs\",! F I=1:1:5 H 1 W \".\"";
-		MLine line = new MLine(m, 0);
+	public void testExecForLoop() throws MParseException {
+		// test the incremental form
+		String m = "W !,\"Waiting 5 Secs\",! F I=1:1:5 H 1 W \".\"";
+		MLine line = new MLine(m);
 //		System.out.println(MParserUtils.displayStructure(line, 100));
-		line.eval(ctx);
+		line.eval(ctx, null);
 		assertEquals("\nWaiting 5 Secs\n.....", ctx.toString());
 		
 		// test the non-incremental form, write x 5 times, ending value of I should be 6
 		ctx = new TestMContext();
 		m = " S I=1 F  Q:I>5  W \"x\" S I=I+1";
-		line = new MLine(m, 0);
-		line.eval(ctx);
+		line = new MLine(m);
+		line.eval(ctx, null);
 		assertEquals("xxxxx", ctx.toString());
 		assertEquals(6, ctx.getLocal("I").val());
 	}
 	
-	@Test 
-	@Ignore
-	public void testISYESStructure() throws IOException {
-		Iterator<MLine> lines = vprj.getEntryPointLines("STOP");
-		while (lines.hasNext()) {
-			MLine line = lines.next();
-			System.out.println(MParserUtils.displayStructure(line, 10));
+	@Test
+	public void testConsoleLine() {
+		// console lines cannot have a tag/entrypoint name, will throw syntax exception
+		MLine m = new MLine("FOO(MSG) ; entrypoint-ish looking line");
+		List<MLineItem<?>> toks = null;
+		try {
+			toks = m.getTokens();
+			fail("Expected exception");
+		} catch (MException.MSyntaxException ex) {
+			// expected
 		}
+		
+		// no longer need to be indented by one space
+		toks = new MLine("W 1").getTokens();
+		assertEquals(1, toks.size());
+		assertTrue(toks.get(0) instanceof MCmd);
+
+		// leading whitespace doesn't matter
+		toks = new MLine("    W 1").getTokens();
+		assertEquals(1, toks.size());
+		assertTrue(toks.get(0) instanceof MCmd);
+		
+		// can still have a . for level indicator
+		m = new MLine(" . . . W 1");
+		toks = m.getTokens();
+		assertEquals(1, toks.size());
+		assertEquals(3, m.getLevel());
+		assertTrue(toks.get(0) instanceof MCmd);
+		assertEquals("W 1", toks.get(0).getValue());
+		
+		// can start with a ;
+		m = new MLine("; comments");
+		toks = m.getTokens();
+		assertEquals(1, toks.size());
+		assertTrue(toks.get(0) instanceof MComment);
+		assertEquals("; comments", toks.get(0).getValue());
+	}
+
+	/** Testing the structure of an existing routine */
+	@Test 
+	public void testISYESStructure() throws IOException {
+		// fetch lines of routine/entrypoint as list
+		List<MLine> lines = new ArrayList<>();
+		for(Iterator<MLine> itr = vprj.getEntryPointLines("ISYES"); itr.hasNext(); lines.add(itr.next()));
+
+		assertEquals("ISYES(MSG) ; returns 1 if user answers yes to message, otherwise 0", lines.get(0).getValue());
+		assertEquals(" N X", lines.get(1).getValue());
+		assertEquals(" W !,MSG", lines.get(2).getValue());
+		assertEquals(" R X:300 E  Q 0", lines.get(3).getValue());
+		assertEquals(" I $$UP^XLFSTR($E(X))=\"Y\" Q 1", lines.get(4).getValue());
+		assertEquals(" Q 0", lines.get(5).getValue());
+		assertEquals(" ;", lines.get(6).getValue());
+		
+		// first line should be structured as labeled entrypoint line
+		List<MLineItem<?>> toks = lines.get(0).getTokens();
+		assertEquals(2, toks.size());
+		assertTrue(toks.get(0) instanceof MEntryPoint);
+		assertTrue(toks.get(1) instanceof MComment);
+		MEntryPoint ep = (MEntryPoint) toks.get(0);
+		assertEquals(1, ep.size());
+		assertTrue(ep.children.get(0) instanceof MLocalVarRef);
+		assertEquals("MSG", ep.children.get(0).getValue());
+		
+		// 5 command lines with 1,1,3,2,1 commands
+		assertEquals(1, lines.get(1).getTokens().size());
+		assertTrue(lines.get(1).getTokens().get(0) instanceof MCmd);
+		assertEquals(1, lines.get(2).getTokens().size());
+		assertTrue(lines.get(2).getTokens().get(0) instanceof MCmdW);
+		assertEquals(3, lines.get(3).getTokens().size());
+		assertTrue(lines.get(3).getTokens().get(0) instanceof MCmd);
+		assertEquals(2, lines.get(4).getTokens().size());
+		assertTrue(lines.get(4).getTokens().get(0) instanceof MCmdI);
+		assertEquals(1, lines.get(5).getTokens().size());
+		assertTrue(lines.get(5).getTokens().get(0) instanceof MCmdQ);
+
+		// 1 comment line
+		assertEquals(1, lines.get(6).getTokens().size());
+		assertTrue(lines.get(6).getTokens().get(0) instanceof MComment);
 	}
 
 	@Test
 	public void testParseWholeRO() throws IOException {
-		
 		// couple examples of header lines, make sure the regex gets them both
 		assertTrue("VPRJ1^INT^1^63404;43618^0".matches(MRoutine.ROUTINE_HEADER_PATTERN));
 		assertTrue("VPRJ^INT^1^62896,42379.33251^0".matches(MRoutine.ROUTINE_HEADER_PATTERN));
@@ -653,4 +823,69 @@ public class ParserTests {
 		List<MRoutine> routines = MRoutine.parseRoutineOutputFile(new FileInputStream(jds));
 		assertEquals(91, routines.size());
 	}
+	
+	@Test
+	public void testTokenTypeNumLiteral() {
+		// matches simple numbers
+		assertEquals(TokenType.NUM_LITERAL, getTokenType("+1", null));
+		assertEquals(TokenType.NUM_LITERAL, getTokenType("-1", null));
+		assertEquals(TokenType.NUM_LITERAL, getTokenType("1", null));
+		assertEquals(TokenType.NUM_LITERAL, getTokenType("0", null));
+		assertEquals(TokenType.NUM_LITERAL, getTokenType("0.0", null));
+		assertEquals(TokenType.NUM_LITERAL, getTokenType(".1", null));
+		
+		// does not match
+		assertEquals(TokenType.UNKNOWN, getTokenType("zero", null));
+		assertEquals(TokenType.UNKNOWN, getTokenType(".", null));
+		
+		// with exponentials
+		assertEquals(TokenType.NUM_LITERAL, getTokenType("1e3", null));
+		assertEquals(TokenType.NUM_LITERAL, getTokenType("1e+3", null));
+		assertEquals(TokenType.NUM_LITERAL, getTokenType("1e-3", null));
+		assertEquals(TokenType.NUM_LITERAL, getTokenType("1.1e3", null));
+		
+		assertEquals(TokenType.UNKNOWN, getTokenType("1.1e3.1", null));
+	}
+	
+	@Test
+	public void testTokenTypeStringLiteral() {
+		// only true strings are quoted
+		assertTrue(getTokenType("\"\"", null) == TokenType.STR_LITERAL);
+		assertTrue(getTokenType("\"FOO\"", null) == TokenType.STR_LITERAL);
+		
+		// not strings
+		assertFalse(getTokenType("'FOO'", null) == TokenType.STR_LITERAL);
+		assertFalse(getTokenType("FOO", null) == TokenType.STR_LITERAL);
+		assertFalse(getTokenType("\"FOO'", null) == TokenType.STR_LITERAL);
+		assertFalse(getTokenType("\"FOO", null) == TokenType.STR_LITERAL);
+		assertFalse(getTokenType("", null) == TokenType.STR_LITERAL);
+	}
+	
+	@Test
+	public void testTokenTypeCMD() {
+		// various case-insensitive
+		assertEquals(TokenType.COMMAND, getTokenType("W", null));
+		assertEquals(TokenType.COMMAND, getTokenType("WRITE", null));
+		assertEquals(TokenType.COMMAND, getTokenType("w", null));
+		assertEquals(TokenType.COMMAND, getTokenType("wRiTe", null));
+		
+		// with post conditional
+		assertEquals(TokenType.COMMAND, getTokenType("Q:FOO", null));
+		
+		// non-commands
+		assertEquals(TokenType.UNKNOWN, getTokenType("FOO", null));
+	}
+	
+	@Test
+	public void test() {
+		String line = " N % Q:'$D(X) \"\" I $L(X)*$G(Y)>245 Q \"\"";
+		MParserUtils.dumpTokens(line);
+
+		for (Iterator<MLine>itr=vprj.iterator(); itr.hasNext();) {
+			MLine ml = itr.next();
+			MParserUtils.dumpTokens(ml.getValue());
+			
+		}
+	}
+	
 }

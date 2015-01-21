@@ -1,12 +1,20 @@
 package gov.va.cpe.vpr.m4j.parser;
 
+import static gov.va.cpe.vpr.m4j.lang.MUMPS.$P;
+import gov.va.cpe.vpr.m4j.lang.MUMPS;
+import gov.va.cpe.vpr.m4j.lang.M4JRuntime.M4JProcess;
+
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
+
+import sun.reflect.ReflectionFactory.GetReflectionFactoryAction;
 
 public abstract class MParserUtils {
 	private static Set<String> DEFAULT_DELIMS = new HashSet<String>(Arrays.asList(" "));
@@ -320,16 +328,27 @@ public abstract class MParserUtils {
 				} else {
 					buff.append(c);
 				}
-			} else if (c == '$' || c == '@') {
+			} else if (c == '$' || c == '@' || c == '.') {
+				// valid prefix/flag
 				if (parenCount == 0) {
 					flags += String.valueOf(c);
 				} else {
 					buff.append(c);
 				}
+			} else if (c == '%' && i <= 1) {
+				// valid only as the character 1 or 2 of a local var
+				buff.append(c);
 			} else if (c == '^' && parenCount == 0) {
+				// valid prefix and entrypoint indicator
 				name = nullIfEmpty(buff);
 				buff.setLength(0);
 				if (i==0) flags += String.valueOf(c);
+			} else if (parenCount == 0 && Character.isDigit(c) && buff.length() == 0) {
+				// if 1st character of name is a digit, its probably not a ref, it might be a literal? (+1, 1E3, etc)
+				return null;
+			} else if (parenCount == 0 && !Character.isAlphabetic(c)) {
+				// not a character/digit, digit at beginning of name probably an expression not a ref
+				return null;
 			} else {
 				buff.append(c);
 			}
@@ -396,7 +415,7 @@ public abstract class MParserUtils {
 
 	public static final String displayStructureAlt(MLine line, int maxlevel) {
 		StringBuilder sb = new StringBuilder();
-		doDisplayStructureAlt(line, line.getIndex(), 0, maxlevel, 0, sb);
+		doDisplayStructureAlt(line, line.getOffset(), 0, maxlevel, 0, sb);
 		return sb.toString();
 	}
 
@@ -419,5 +438,108 @@ public abstract class MParserUtils {
 			chars[i] = (in != null && i < in.length()) ? in.charAt(i) : ' ';
 		}
 		return new String(chars);
+	}
+	
+	/** same as String.contains(char), but ignores stuff in quotes and parens */
+	public static final boolean strContains(String str, char... toks) {
+		// convert to set for quick lookup
+		Set<Character> chars = new HashSet<>();
+		for (char t : toks) chars.add(t);
+		
+		return strContains(str, chars);
+	}
+	
+	public static final boolean strContains(String str, Set<Character> toks) {
+		if (str == null || toks.isEmpty()) return false;
+		
+		boolean inquote = false;
+		boolean inparen = false;
+		int quotelevel = 0;
+		for (int i=0; i < str.length(); i++) {
+			char c = str.charAt(i);
+			char n = (i+1 == str.length()) ? '\0' : str.charAt(i+1);
+			
+			if (c == '"') {
+				if (inquote && n == '"') {
+					// don't close the quote, its an escaped inner quote, consume one character and go on
+					i++;
+				} else {
+					inquote = !inquote; // start/end of quote
+				}
+			} else if (!inquote && c == '(') {
+				quotelevel++;
+				inquote = true;
+			} else if (!inquote && c == ')') {
+				inquote = (--quotelevel > 0);
+			} else if (!inquote && !inparen && toks.contains(c)) {
+				return true;
+			}
+		}
+		
+		return false;
+	}
+	
+	private static final String REGEX_NUM_LIT = "^[\\-\\+]?[\\d\\.]+[eE]?[\\-\\+]?[\\d]*$";
+	private static final String REGEX_EP_NAME = "^[a-zA-Z]+[a-zA-Z0-9]*$";
+	public enum TokenType {
+		STR_LITERAL,
+		NUM_LITERAL,
+		COMMAND,
+		COMMENT,
+		REF, // local var, global var, function, etc.
+		DELIM, // delimiter (space, etc)
+		LINE_INDENT,
+		EXPR,
+		EXPR_LIST, // comma delimited expression list
+		UNKNOWN, PC
+	}
+	
+	public static TokenType getTokenType(String tok, M4JProcess proc) {
+		// simple things we can find
+		if (tok == null) return TokenType.DELIM;
+		
+		if (tok.startsWith("\"") && tok.endsWith("\"")) {
+			// TODO: What about "A"_"B"?
+			return TokenType.STR_LITERAL;
+		} else if (tok.startsWith(";")) {
+			return TokenType.COMMENT;
+		} else if (tok.equals(".")) {
+			return TokenType.LINE_INDENT;
+		} else if (strContains(tok, MCmd.ALL_OPERATOR_CHARS)) {
+			return TokenType.EXPR;
+		} else if (MCmd.COMMAND_SET.contains($P(tok,":",1).toUpperCase())) {
+			return TokenType.COMMAND;
+		} else if (parseRef(tok) != null) {
+			return TokenType.REF;
+		} else if (strContains(tok, ',')) {
+			return TokenType.EXPR_LIST;
+		} else if (tok.matches(REGEX_NUM_LIT) && !tok.trim().equals(".")) {
+			return TokenType.NUM_LITERAL;
+		}
+		
+		// if there are commas its an expression list
+		return TokenType.UNKNOWN;
+	}
+	
+	public static void dumpTokens(String line) {
+		List<String> toks = tokenize(line);
+		
+		System.out.println(line);
+		int[] idxs = new int[toks.size()];
+		StringBuffer sb = new StringBuffer();
+		for (int i=0; i < toks.size(); i++) {
+			String tok = toks.get(i);
+			int idx = idxs[i] = line.indexOf((tok == null) ? " " : tok, (i == 0) ? 0 : idxs[i-1]);
+			
+			// append the difference
+			if (i > 0) {
+				for (int j=0; j < (idx-idxs[i-1]); j++) {
+					sb.append(" ");
+				}
+			}
+//			System.out.print(sb.toString());
+			System.out.println(idx + ":" + getTokenType(tok, null) + ":" + tok);
+			sb.append('|');
+		}
 	}
 }
