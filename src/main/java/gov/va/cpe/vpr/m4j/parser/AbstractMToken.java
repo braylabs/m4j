@@ -2,7 +2,10 @@ package gov.va.cpe.vpr.m4j.parser;
 
 import gov.va.cpe.vpr.m4j.global.MVar;
 import gov.va.cpe.vpr.m4j.lang.M4JRuntime.M4JProcess;
+import gov.va.cpe.vpr.m4j.lang.RoutineProxy;
+import gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExprItem;
 import gov.va.cpe.vpr.m4j.parser.MCmd.MExprList;
+import gov.va.cpe.vpr.m4j.parser.MCmd.MParseException;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -33,7 +36,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 	}
 	
 	@Override
-	public Object eval(M4JProcess ctx, MToken<?> parent) {
+	public Object eval(M4JProcess ctx, MToken<?> parent) throws MParseException {
 		// does nothing by default
 		return null;
 	}
@@ -47,6 +50,12 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 	public Iterator<T> iterator() {
 		if (this.children == null) return new ArrayList<T>().iterator();
 		return this.children.iterator();
+	}
+	
+	@Override
+	public int size() {
+		if (this.children == null) return -1;
+		return this.children.size();
 	}
 	
 	public static class MExpr extends MExprItem {
@@ -220,6 +229,28 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 			super(value, args);
 			this.entryPoint = entryPoint;
 			this.routineName = routineName;
+		}
+		
+		@Override
+		public Object eval(M4JProcess ctx, MToken<?> parent) {
+			// get routine
+			RoutineProxy routine = ctx.getRoutine(this.routineName);
+			
+			// build array of params
+			List<Object> args = new ArrayList<>();
+			Iterator<MExprItem> itr = getArgs().iterator();
+			while (itr.hasNext()) {
+				args.add(itr.next().eval(ctx, this));
+			}
+			
+			try {
+				return routine.call(routineName, entryPoint, ctx, args.toArray());
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			return super.eval(ctx, parent);
 		}
 	}
 	

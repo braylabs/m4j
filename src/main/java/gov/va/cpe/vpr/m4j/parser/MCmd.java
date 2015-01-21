@@ -20,7 +20,12 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 	public static final Set<String> COMMAND_SET = Collections
 			.unmodifiableSet(new HashSet<String>(Arrays.asList("B", "C", "D",
 					"E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "Q",
-					"R", "S", "TC", "TRE", "TRO", "TS", "U", "V", "W", "X")));
+					"R", "S", "TC", "TRE", "TRO", "TS", "U", "V", "W", "X",
+					// long form
+					
+					"BREAK","CATCH","CLOSE","DO","FOR","GOTO","HALT","HANG","IF",
+					"JOB","KILL","LOCK","MERGE","NEW","OPEN","QUIT","READ","SET","TCOMMIT",
+					"TSTART", "USE", "VIEW","WRITE","XECUTE")));
 	
 	public static final Set<String> ARITHMETIC_OPS = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList("+", "-", "*", "**", "/", "\\", "#")));
 	
@@ -57,7 +62,8 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		impl.put("IF", MCmd.MCmdI.class);
 		impl.put("F", MCmd.MCmdF.class);
 		impl.put("FOR", MCmd.MCmdF.class);
-
+		impl.put("N", MCmd.MCmdN.class);
+		impl.put("NEW", MCmd.MCmdN.class);
 		impl.put("W", MCmd.MCmdW.class);
 		impl.put("WRITE", MCmd.MCmdW.class);
 		impl.put("S", MCmd.MCmdS.class);
@@ -81,6 +87,7 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		this.cmd = $P(this.cmdname, ":", 1).toUpperCase();
 	}
 	
+	@Override
 	public MLine getLine() {
 		return line;
 	}
@@ -203,6 +210,8 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 						} else {
 							throw new RuntimeException("Unknown Operator: " + item);
 						}
+					} else {
+						item.eval(ctx, item);
 					}
 				}
 				
@@ -268,7 +277,7 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		}
 		
 		@Override
-		public Object eval(M4JProcess ctx, MToken<?> parent) {
+		public Object eval(M4JProcess ctx, MToken<?> parent) throws MParseException {
 			// convert the expression list to postfix for evaluation
 			MExprList list = findSubToken(this, MExprList.class);
 
@@ -276,7 +285,7 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 			Integer incLimit = null;
 			MAssignable iteratorVal = null;
 			
-			// loop through the expressions to initalize the loop
+			// loop through the expressions to initialize the loop
 			for (MExprItem expr : list) {
 				List<MExprItem> items = ((gov.va.cpe.vpr.m4j.parser.AbstractMToken.MExpr) expr).getExprStack();
 				for (int i = 0; i < items.size(); i++) {
@@ -287,7 +296,7 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 							MExprItem rhs = items.get(i-1);
 							MExprItem lhs = items.get(i-2);
 							if (lhs instanceof MAssignable) {
-//								System.out.println("Initalizing: " + lhs + " TO " + rhs.eval(ctx, this));
+//								System.out.println("Initializing: " + lhs + " TO " + rhs.eval(ctx, this));
 								iteratorVal = (MAssignable) lhs;
 								iteratorVal.set(ctx, rhs.eval(ctx, this), this);
 							}
@@ -340,9 +349,19 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		}
 	}
 	
-	
-	
 	public static class MCmdQ extends MCmd {
+		
+		public static class QuitReturn {
+			private Object val;
+
+			public QuitReturn(Object val) {
+				this.val = val;
+			}
+			
+			public Object getValue() {
+				return this.val;
+			}
+		}
 
 		public MCmdQ(String cmdname, String cmdvalue, int offset, MLine line) {
 			super(cmdname, cmdvalue, offset, line);
@@ -359,7 +378,37 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 					return (ret == Boolean.TRUE) ? Boolean.FALSE : Boolean.TRUE;
 				}
 			}
-			return Boolean.FALSE; // indicate to stop processing...
+			
+			MExprList list = findSubToken(this, MExprList.class);
+			if (list == null || list.size() == 0) {
+				return new QuitReturn(null);
+			} else {
+				return new QuitReturn(list.getExpressions().get(0).eval(ctx, this));
+			}
+		}
+	}
+	
+	public static class MCmdN extends MCmd {
+		public MCmdN(String cmdname, String cmdvalue, int offset, MLine line) {
+			super(cmdname, cmdvalue, offset, line);
+		}
+		
+		@Override
+		public Object eval(M4JProcess proc, MToken<?> parent) throws MParseException {
+			for (MToken<?> tok : getTokens()) {
+				if (tok instanceof MExprList) {
+					// new all these variables
+					List<String> names = new ArrayList<>();
+					for (MExprItem item : ((MExprList) tok).getExpressions()) {
+						names.add(item.getValue());
+					}
+					proc.push(false, names.toArray(new String[] {}));
+				} else {
+					throw new MParseException(tok, "Unexpected token");
+				}
+			}
+			// TODO Auto-generated method stub
+			return super.eval(proc, parent);
 		}
 	}
 	
