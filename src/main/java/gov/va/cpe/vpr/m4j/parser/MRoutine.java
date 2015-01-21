@@ -3,6 +3,9 @@ package gov.va.cpe.vpr.m4j.parser;
 
 import gov.va.cpe.vpr.m4j.lang.M4JRuntime.M4JProcess;
 import gov.va.cpe.vpr.m4j.lang.RoutineProxy;
+import gov.va.cpe.vpr.m4j.parser.MCmd.MCmdQ;
+import gov.va.cpe.vpr.m4j.parser.MCmd.MParseException;
+import gov.va.cpe.vpr.m4j.parser.MLine.MEntryPoint;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -22,6 +25,8 @@ public class MRoutine extends AbstractMToken<MLine> implements RoutineProxy {
 	public static String ROUTINE_HEADER_PATTERN = "^([a-zA-Z][\\w]*?)\\^INT\\^1\\^[\\w\\.\\,\\;]+\\^0.*$"; 
 
 	protected Map<String,Integer> entryPointNames = new HashMap<String,Integer>();
+	protected Map<String, MEntryPoint> entryPoint = new HashMap<>();
+	
 	private List<String> content; // the original raw content
 	private String name;
 	
@@ -40,22 +45,41 @@ public class MRoutine extends AbstractMToken<MLine> implements RoutineProxy {
 			children.add(i, null); // empty lines cache
 			String name = MParserUtils.parseRoutineName(content.get(i));
 			if (name != null) {
+				
 				entryPointNames.put(name, i);
 			}
 		}
 	}
 	
 	@Override
-	public Object call(String name, String entrypoint, M4JProcess proc, Object... params) {
+	public Object call(String name, String entrypoint, M4JProcess proc, Object... params) throws MParseException {
 		// get the lines to start evaluation at (evaluate
 		Iterator<MLine> itr = getEntryPointLines(entrypoint);
+		
+		int curLevel = proc.getLocal("$STACK").valInt();
+		proc.setExecTrace(getName() + "+0");
 		
 		// run each line one at a time until we get a quit
 		while (itr.hasNext()) {
 			MLine line = itr.next();
 			
-			
-			line.eval(proc);
+			// entrypoint/tag line, resolve variables
+			if (line.getLabel() != null) {
+				MEntryPoint ep = (MEntryPoint) line.getTokens().get(0);
+				List<String> names = new ArrayList<>();
+				for (MLocalVarRef var : ep.getVars()) names.add(var.getValue());
+				proc.push(false, names.toArray(new String[]{}));				
+				continue;
+			}
+
+			// otherwise evaluate the line
+			Object ret = line.eval(proc, this);
+			if (ret instanceof MCmdQ.QuitReturn) {
+				// reset the stack level
+				int newLevel = proc.getLocal("$STACK").valInt();
+				proc.reset(newLevel - curLevel);
+				break;
+			}
 		}
 		
 		// TODO: How to return?
@@ -106,7 +130,7 @@ public class MRoutine extends AbstractMToken<MLine> implements RoutineProxy {
 		MLine line = children.get(idx);
 		if (line == null) {
 			String linestr = content.get(idx);
-			children.set(idx, line = new MLine(linestr, idx));
+			children.set(idx, line = new MLine(linestr, idx, this));
 		}
 		
 		return line; 

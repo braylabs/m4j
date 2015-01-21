@@ -103,13 +103,13 @@ public interface RoutineProxy {
 		@Override
 		public Object call(String name, String entrypoint, M4JProcess proc, Object... params) throws Exception {
 			// if no instance already exists for proc, create one
-			Object o = instances.get(proc);
-			if (o == null) {
-				instances.put(proc, o = clazz.newInstance());
+			Object inst = proc.getProcessCache(clazz.getName(), Object.class);
+			if (inst == null) {
+				inst = proc.setProcessCache(clazz.getName(), inst = clazz.newInstance());
 			}
 			
 			// invoke
-			return this.eps.get(entrypoint).invoke(o);
+			return this.eps.get(entrypoint).invoke(inst, params);
 		}
 		
 	}

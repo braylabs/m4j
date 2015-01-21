@@ -1,5 +1,7 @@
 package gov.va.cpe.vpr.m4j.global;
 
+import gov.va.cpe.vpr.m4j.parser.MParserUtils;
+
 import java.io.Serializable;
 import java.util.Iterator;
 import java.util.TreeMap;
@@ -45,6 +47,12 @@ public abstract class MVar {
 	
 	public String getFullName() {
 		return getName() + path.toString();
+	}
+	
+	public Integer valInt() {
+		Object obj = val();
+		if (obj == null) return null;
+		return MParserUtils.evalNumericValue(obj).intValue();
 	}
 	
 	public Object val() {

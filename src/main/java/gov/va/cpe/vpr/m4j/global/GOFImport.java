@@ -1,6 +1,7 @@
 package gov.va.cpe.vpr.m4j.global;
 
-import gov.va.cpe.vpr.m4j.lang.M4JProcess;
+import gov.va.cpe.vpr.m4j.lang.M4JRuntime;
+import gov.va.cpe.vpr.m4j.lang.M4JRuntime.M4JProcess;
 import gov.va.cpe.vpr.m4j.parser.MParserUtils;
 
 import java.io.BufferedReader;

@@ -3,12 +3,15 @@ package gov.va.cpe.vpr.m4j.lang;
 import gov.va.cpe.vpr.m4j.global.MVar;
 import gov.va.cpe.vpr.m4j.global.MVar.TreeMVar;
 import gov.va.cpe.vpr.m4j.lang.RoutineProxy.JavaClassProxy;
+import gov.va.cpe.vpr.m4j.parser.MCmd.MParseException;
+import gov.va.cpe.vpr.m4j.parser.MLine;
 
 import java.io.File;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.h2.mvstore.MVStore;
 
@@ -23,6 +26,12 @@ public class M4JRuntime {
 	// global storage for namespace
 	private Map<String, MVar> globals = new HashMap<>();
 	private MVStore mvstore;
+	
+	// running threads/processes
+	private AtomicInteger procID = new AtomicInteger();
+	private Map<Integer,M4JProcess> procs = new HashMap<>();
+	private ThreadGroup group = new ThreadGroup("M4J-PROCS");
+
 
 	public M4JRuntime() {
 	}
@@ -58,6 +67,22 @@ public class M4JRuntime {
 	public RoutineProxy getRoutine(String name) {
 		return this.routines.get(name);
 	}
+	
+	/** Spawn/Fork new process in new thread */
+	public M4JProcess spawnProcess() {
+		// create the process
+		int id = this.procID.incrementAndGet();
+		M4JProcess ret = new M4JProcess(this, id);
+		this.procs.put(id, ret);
+		
+		// launch it
+		String name = "M4J-PROC-" + id;
+		Thread t = new Thread(group, ret, name);
+		t.setDaemon(true);
+		t.start();
+		
+		return ret;
+	}
 
 	// subclasses -------------------------------------------------------------
 
@@ -80,16 +105,14 @@ public class M4JRuntime {
 		private M4JStackItem stack = new M4JStackItem(null, true, "ROOT");
 		private int stackLevel = 0;
 		private Map<String, MVar> specialVars = new HashMap<>();
+		private Map<String, Object> cache = new HashMap<>();
 		private String trace;
 		
-		public M4JProcess(M4JRuntime runtime) {
+		public M4JProcess(M4JRuntime runtime, int ID) {
 			this.runtime = runtime;
-			init();
-		}
-		
-		protected void init() {
+			
 			// setup special vars
-			MVar v = new TreeMVar("$JOB", 1);
+			MVar v = new TreeMVar("$JOB", ID);
 			specialVars.put(v.getName(), v);
 		}
 		
@@ -108,14 +131,22 @@ public class M4JRuntime {
 			return this.runtime.getGlobal(name);
 		}
 		
-		/**
-		 * TODO: this isn't right... non nude variable in a subroutine will get killed so you can't pass back values
-		 * @param name
-		 * @return
-		 */
 		public MVar getLocal(String name) {
 			if (name.startsWith("$")) return getSpecialVar(name);
-			return stack.get(name);
+			return stack.get(name, false);
+		}
+		
+		/** Essentially the NEW command */
+		public void push(boolean exclusive, String... names) {
+			stackLevel++;
+			this.stack = new M4JStackItem(this.stack, exclusive, this.trace); 
+			for (String name : names) {
+				this.stack.get(name, true);
+			}
+		}
+		
+		public void reset(int levels) {
+			for (int i=0; i < levels; i++) this.stack = this.stack.parent;
 		}
 		
 		public RoutineProxy getRoutine(String name) {
@@ -126,25 +157,20 @@ public class M4JRuntime {
 			return runtime;
 		}
 		
+		public <T> T setProcessCache(String key, T val) {
+			this.cache.put(key, val);
+			return val;
+		}
+		
+		public <T> T getProcessCache(String key, Class<T> clazz) {
+			return (T) this.cache.get(key);
+		}
+		
 		/** Typically something like: FOO^ROUTINE+3, etc. */
 		public void setExecTrace(String trace) {
 			this.trace = trace;
 		}
 		
-		public M4JStackItem push() {
-			return push(false);
-		}
-		
-		public M4JStackItem push(boolean exclusive) {
-			stackLevel++;
-			return this.stack = new M4JStackItem(this.stack, exclusive, this.trace); 
-		}
-		
-		public M4JStackItem pop() {
-			stackLevel--;
-			return this.stack = this.stack.getParent();
-		}
-
 		public void setOutputStream(OutputStream out) {
 			this.out = new PrintStream(out);
 		}
@@ -174,6 +200,15 @@ public class M4JRuntime {
 		}
 		
 		/**
+		 * Convenience method for evaluating a single M line
+		 * @throws MParseException 
+		 */
+		public Object eval(String mline) throws MParseException {
+			MLine line = new MLine(mline);
+			return line.eval(this, null);
+		}
+		
+		/**
 		 * Execution stack (in a routine, etc.), intended to be a lightweight subclass of process.
 		 * 
 		 * Primary mechanism for implementing NEW command variable/stack.
@@ -200,23 +235,21 @@ public class M4JRuntime {
 				return this.parent;
 			}
 
-			public MVar get(String name) {
-				// lazy initialize map
-				if (locals == null) {
-					locals = new HashMap<>();
-				}
-				
+			public MVar get(String name, boolean newd) {
 				// if defined locally, return it
-				MVar ret = locals.get(name);
-				if (ret == null && exclusive) {
-					// in exclusive mode, ignore parent, create var here
-					locals.put(name, ret = new TreeMVar(name));
-				} else if (ret == null) {
-					// go up the stack
-					ret = parent.get(name);
-				}
+				MVar ret = (locals != null) ? locals.get(name) : null;
+				if (ret != null) return ret;
 				
-				return ret;
+				// if newd or exclusive mode, create var here
+				if (newd || exclusive) {
+					// lazy init
+					if (locals == null) locals = new HashMap<>();
+					locals.put(name, ret = new TreeMVar(name));
+					return ret;
+				} else {
+					// go up the stack
+					return parent.get(name, false);
+				}
 			}
 			
 			public MVar kill(String name) {
