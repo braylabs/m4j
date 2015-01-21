@@ -36,6 +36,10 @@ public class M4JRuntime {
 	public M4JRuntime() {
 	}
 	
+	public M4JRuntime(MVStore store) {
+		this.mvstore = store;
+	}
+	
 	public void registerRoutine(RoutineProxy routine) {
 		
 		routines.put(routine.getName(), routine);

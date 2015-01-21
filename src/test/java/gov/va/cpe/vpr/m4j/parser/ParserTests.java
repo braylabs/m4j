@@ -6,7 +6,6 @@ import static gov.va.cpe.vpr.m4j.parser.MParserUtils.parseRef;
 import static gov.va.cpe.vpr.m4j.parser.MParserUtils.tokenize;
 import static gov.va.cpe.vpr.m4j.parser.MParserUtils.tokenizeOps;
 import static gov.va.cpe.vpr.m4j.parser.MParserUtils.strContains;
-import static gov.va.cpe.vpr.m4j.parser.MParserUtils.getTokenType;
 import static org.junit.Assert.*;
 import gov.va.cpe.vpr.m4j.global.MVar;
 import gov.va.cpe.vpr.m4j.lang.M4JRuntime;
@@ -24,7 +23,6 @@ import gov.va.cpe.vpr.m4j.parser.MCmd.MCmdW;
 import gov.va.cpe.vpr.m4j.parser.MCmd.MParseException;
 import gov.va.cpe.vpr.m4j.parser.MLine.MComment;
 import gov.va.cpe.vpr.m4j.parser.MLine.MEntryPoint;
-import gov.va.cpe.vpr.m4j.parser.MParserUtils.TokenType;
 import gov.va.cpe.vpr.m4j.parser.MToken.MLineItem;
 
 import java.io.ByteArrayOutputStream;
@@ -42,7 +40,6 @@ import java.util.List;
 import java.util.Set;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class ParserTests {
@@ -822,70 +819,6 @@ public class ParserTests {
 		if (!jds.exists()) throw new FileNotFoundException();
 		List<MRoutine> routines = MRoutine.parseRoutineOutputFile(new FileInputStream(jds));
 		assertEquals(91, routines.size());
-	}
-	
-	@Test
-	public void testTokenTypeNumLiteral() {
-		// matches simple numbers
-		assertEquals(TokenType.NUM_LITERAL, getTokenType("+1", null));
-		assertEquals(TokenType.NUM_LITERAL, getTokenType("-1", null));
-		assertEquals(TokenType.NUM_LITERAL, getTokenType("1", null));
-		assertEquals(TokenType.NUM_LITERAL, getTokenType("0", null));
-		assertEquals(TokenType.NUM_LITERAL, getTokenType("0.0", null));
-		assertEquals(TokenType.NUM_LITERAL, getTokenType(".1", null));
-		
-		// does not match
-		assertEquals(TokenType.UNKNOWN, getTokenType("zero", null));
-		assertEquals(TokenType.UNKNOWN, getTokenType(".", null));
-		
-		// with exponentials
-		assertEquals(TokenType.NUM_LITERAL, getTokenType("1e3", null));
-		assertEquals(TokenType.NUM_LITERAL, getTokenType("1e+3", null));
-		assertEquals(TokenType.NUM_LITERAL, getTokenType("1e-3", null));
-		assertEquals(TokenType.NUM_LITERAL, getTokenType("1.1e3", null));
-		
-		assertEquals(TokenType.UNKNOWN, getTokenType("1.1e3.1", null));
-	}
-	
-	@Test
-	public void testTokenTypeStringLiteral() {
-		// only true strings are quoted
-		assertTrue(getTokenType("\"\"", null) == TokenType.STR_LITERAL);
-		assertTrue(getTokenType("\"FOO\"", null) == TokenType.STR_LITERAL);
-		
-		// not strings
-		assertFalse(getTokenType("'FOO'", null) == TokenType.STR_LITERAL);
-		assertFalse(getTokenType("FOO", null) == TokenType.STR_LITERAL);
-		assertFalse(getTokenType("\"FOO'", null) == TokenType.STR_LITERAL);
-		assertFalse(getTokenType("\"FOO", null) == TokenType.STR_LITERAL);
-		assertFalse(getTokenType("", null) == TokenType.STR_LITERAL);
-	}
-	
-	@Test
-	public void testTokenTypeCMD() {
-		// various case-insensitive
-		assertEquals(TokenType.COMMAND, getTokenType("W", null));
-		assertEquals(TokenType.COMMAND, getTokenType("WRITE", null));
-		assertEquals(TokenType.COMMAND, getTokenType("w", null));
-		assertEquals(TokenType.COMMAND, getTokenType("wRiTe", null));
-		
-		// with post conditional
-		assertEquals(TokenType.COMMAND, getTokenType("Q:FOO", null));
-		
-		// non-commands
-		assertEquals(TokenType.UNKNOWN, getTokenType("FOO", null));
-	}
-	
-	@Test
-	public void test() {
-		String line = " N % Q:'$D(X) \"\" I $L(X)*$G(Y)>245 Q \"\"";
-		MParserUtils.dumpTokens(line);
-
-		for (Iterator<MLine>itr=vprj.iterator(); itr.hasNext();) {
-			MLine ml = itr.next();
-			MParserUtils.dumpTokens(ml.getValue());
-			
-		}
 	}
 	
 }
