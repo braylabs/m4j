@@ -147,6 +147,9 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 	}
 	
 	public static class MCmdI extends MCmd {
+		
+		public static final Boolean FALSE = Boolean.FALSE;
+		public static final Boolean TRUE = Boolean.TRUE;
 
 		public MCmdI(String cmdname, String cmdvalue, int offset, MLine line) {
 			super(cmdname, cmdvalue, offset, line);

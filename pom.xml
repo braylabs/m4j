@@ -1,15 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>gov.va.cpe</groupId>
+    <groupId>com.braylabs</groupId>
     <artifactId>m4j</artifactId>
     <packaging>jar</packaging>
     <version>0.1</version>
     <name>MUMPS for JAVA</name>
-    <organization>
-        <name>Department of Veterans Affairs</name>
-        <url>http://www.va.gov/</url>
-    </organization>
     <licenses>
         <license>
             <name>Public Domain</name>
@@ -18,6 +14,7 @@
     </licenses>
     <properties>
     	<jackson.version>2.0.6</jackson.version>
+    	<antlr.version>4.5</antlr.version>
     </properties>
     <build>
         <defaultGoal>package</defaultGoal>
@@ -52,6 +49,12 @@
         </testResources>
     </build>
     <dependencies>
+        <dependency>
+            <groupId>org.antlr</groupId>
+            <artifactId>antlr4-runtime</artifactId>
+            <version>${antlr.version}</version>
+        </dependency>
+    
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>

@@ -280,7 +280,7 @@ public class MParserUtilTests {
 		assertEquals(null, MParserUtils.parseStringLiteral("abc", 10));
 	}
 	@Test
-	public void testParseNumericValue() {
+	public void testEvalNumericValue() {
 		// simple
 		assertEquals(1, evalNumericValue("1"));
 		assertEquals(0, evalNumericValue("0"));
@@ -290,6 +290,10 @@ public class MParserUtilTests {
 		assertEquals(1d, evalNumericValue("1.0"));
 		assertEquals(1, evalNumericValue("+1"));
 		
+		// leading digits will be the numeric value
+		assertEquals(12, evalNumericValue("12 monkeys"));
+		assertEquals(0, evalNumericValue("asdf123fdsa"));
+		
 		// already numeric values
 		assertEquals(10, evalNumericValue(new Integer(10)));
 		assertEquals(10d, evalNumericValue(new Double(10)));
@@ -298,14 +302,22 @@ public class MParserUtilTests {
 		assertEquals(1000, evalNumericValue("1E3"));
 		assertEquals(1000, evalNumericValue("1e3"));
 		assertEquals(-0.0011d, (Double) evalNumericValue("-1.1e-3"), .01d);
+		assertEquals(21, evalNumericValue("21eee13"));
 		
 		// border cases
 		assertEquals(0, evalNumericValue(""));
 		assertEquals(0, evalNumericValue(null));
 		
+		// booleans
+		assertEquals(0, evalNumericValue(Boolean.FALSE));
+		assertEquals(1, evalNumericValue(Boolean.TRUE));
+		
 		// non-canatonical
 		assertEquals(123.0, evalNumericValue("0000123.000"));
 		assertEquals(123.12, evalNumericValue("+00123.12000"));
+
+		// strange case of multiple prefix operators: "-+-++-7" does nothing here (only works on unary operator)
+		assertEquals(0, evalNumericValue("-+-++-7"));
 	}
 	
 	@Test

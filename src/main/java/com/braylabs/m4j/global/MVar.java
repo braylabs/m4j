@@ -87,9 +87,9 @@ public abstract class MVar {
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		if (isDefined()) {
 			sb.append(getName());
 			if (this.path.size() > 0) path.toString(sb);	
+			if (isDefined()) {
 			sb.append("=");
 			sb.append(val());
 		}

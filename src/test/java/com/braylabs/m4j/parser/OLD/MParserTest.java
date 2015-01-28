@@ -1,13 +1,13 @@
-package com.braylabs.m4j.parser;
+package com.braylabs.m4j.parser.OLD;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static com.braylabs.m4j.parser.MParser.*;
+import static com.braylabs.m4j.parser.OLD.MParser.*;
 
 import org.junit.Test;
 
-import com.braylabs.m4j.parser.MParser.TokenType;
+import com.braylabs.m4j.parser.OLD.MParser.TokenType;
 
 public class MParserTest {
 	@Test
@@ -50,13 +50,13 @@ public class MParserTest {
 	@Test
 	public void testTokenTypeCMD() {
 		// various case-insensitive
-		assertEquals(TokenType.COMMAND, getTokenType("W", null));
-		assertEquals(TokenType.COMMAND, getTokenType("WRITE", null));
-		assertEquals(TokenType.COMMAND, getTokenType("w", null));
-		assertEquals(TokenType.COMMAND, getTokenType("wRiTe", null));
+		assertEquals(TokenType.CMD, getTokenType("W", null));
+		assertEquals(TokenType.CMD, getTokenType("WRITE", null));
+		assertEquals(TokenType.CMD, getTokenType("w", null));
+		assertEquals(TokenType.CMD, getTokenType("wRiTe", null));
 		
 		// with post conditional
-		assertEquals(TokenType.COMMAND, getTokenType("Q:FOO", null));
+		assertEquals(TokenType.CMD, getTokenType("Q:FOO", null));
 		
 		// non-commands
 		assertEquals(TokenType.REF, getTokenType("FOO", null));

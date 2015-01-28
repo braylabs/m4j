@@ -256,6 +256,7 @@ public abstract class MParserUtils {
 	public static final Number evalNumericValue(Object obj) {
 		if (obj == null) return 0;
 		if (obj instanceof Number) return (Number) obj;
+		if (obj instanceof Boolean) return ((Boolean) obj) == Boolean.TRUE ? 1 : 0;
 		String str = obj.toString();
 		if (str.isEmpty()) return 0;
 		
@@ -269,9 +270,11 @@ public abstract class MParserUtils {
 		}
 		if (str.indexOf('E') > 0 || str.indexOf('e') > 0) {
 			String[] split = str.split("[eE]");
-			str = split[0];
-			if (split[1].indexOf('.') > 0) isFloat = true;
-			mult *= Math.pow(10, Float.parseFloat(split[1]));
+			if (split.length == 2 && split[0].matches("[0-9\\.]+") && split[1].matches("[0-9\\-]+")) {
+				str = split[0];
+				if (split[1].indexOf('.') > 0) isFloat = true;
+				mult *= Math.pow(10, Float.parseFloat(split[1]));
+			}
 		}
 		
 		// now go through the characters, when we encounter the first non-numeric character, ignore the rest
@@ -286,6 +289,8 @@ public abstract class MParserUtils {
 			}
 		}
 		
+		// empty then not a string
+		if (str.isEmpty()) return new Integer(0);
 		
 		// should be a parsable number now
 		if (isFloat) {
