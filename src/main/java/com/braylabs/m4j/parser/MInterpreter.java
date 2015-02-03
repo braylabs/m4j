@@ -27,10 +27,10 @@ import com.braylabs.m4j.parser.MUMPSParser.CmdContext;
 import com.braylabs.m4j.parser.MUMPSParser.CmdListContext;
 import com.braylabs.m4j.parser.MUMPSParser.ExprContext;
 import com.braylabs.m4j.parser.MUMPSParser.LineContext;
+import com.braylabs.m4j.parser.MUMPSParser.LinesContext;
 import com.braylabs.m4j.parser.MUMPSParser.LiteralContext;
 import com.braylabs.m4j.parser.MUMPSParser.PceContext;
 import com.braylabs.m4j.parser.MUMPSParser.RefContext;
-import com.braylabs.m4j.parser.MUMPSParser.RegularLineContext;
 
 public class MInterpreter extends MUMPSBaseVisitor<Object> {
 
@@ -42,7 +42,13 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	}
 	
 	@Override
-	public Object visitRegularLine(RegularLineContext ctx) {
+	public Object visitLine(LineContext ctx) {
+		
+		// count its indent length
+		int indent=ctx.DOT().size();
+		
+		// only execute if its indent level 0 for now
+		if (indent > 0) return null;
 		
 		// loop through each command and evaluate it
 		for (CmdContext cmd : ctx.cmdList().cmd()) {
@@ -389,11 +395,17 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	}
 	
 	public Object evalLine(String line) {
+		
+		// must pad the line with EOL, otherwise parser complains for now
+		if (!line.endsWith("\n")) {
+			line += "\n";
+		}
+		
 		// parse the line and then evaluate it
 		MUMPSParser parser = parse(line);
 		parser.removeErrorListeners();
 		parser.addErrorListener(new UnderlineErrorListener());
-		LineContext ctx = parser.line();
+		LinesContext ctx = parser.lines();
 		
 		// print debug info if set
 		if (this.debug) {

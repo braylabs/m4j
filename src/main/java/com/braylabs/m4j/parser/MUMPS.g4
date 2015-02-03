@@ -15,10 +15,12 @@ routineLine
 	| entryPoint lineEnd // entry point-only line
 	| line;
 
+
+// TODO: Cant seem to get this to accept either EOL or EOF, it gets into infinite loop.
+lines: line+ EOF;
 line 
-	: LEADING_WS? lineEnd #CommentLine // comment only line
-	| '. '+ cmdList lineEnd #IndentedLine // indented line
-	| LEADING_WS? cmdList lineEnd #RegularLine // regular line
+	: LEADING_WS? lineEnd // comment only line
+	| LEADING_WS? DOT* cmdList lineEnd // indented line
 ;
 
 cmdList
@@ -34,7 +36,7 @@ pce
 	: ':' expr
 ;
 
-lineEnd: COMMENT (EOL|EOF) | EOL | EOF;
+lineEnd: COMMENT? EOL;
 
 // entrypoint args must be refs, not literals
 entryPoint
@@ -108,25 +110,18 @@ expr
 // TODO: ? NUM_LITERAL not appropriate for full pattern matching operator
 literal : STR_LITERAL | NUM_LITERAL	| '!' | '?' NUM_LITERAL;
 	
-FLAGS : '$$' | '$' | '.' | '@';
 
 BIN_OP
-	: '='
-	| '#'
-	| '*'
-	| '/'
-	| '&'
-	| '\\'
-	| '>'
-	| '<'
-	| '_'
-	| '!'
-	| '\'='
+	: '=' | '\'=' // equiv
+	| '#' | '*' | '**' | '/' | '\\' // arithmetic
+	| '>' | '>=' | '\'>' | '<' | '<=' | '\'<' // logical comparison 
+	| '_' | '[' | '\'['| ']' | '\']' | ']]' | '\']]' // string 
+//	| '&'| '!' // not used?
 ;
 AMBIG_OP: '-' | '+';
 UNARY_OP: '\'';
 
-EOL: '\r'? '\n' {lineStart=true;} {System.out.println("set lineStart=true");};
+EOL: '\r'? '\n' {lineStart=true;};
 LEADING_WS : [ \t]+ {lineStart}? {lineStart=false;};
 WS : [ \t]+ {lineStart=false;} -> channel(HIDDEN);
 ID  : [A-Za-z%][0-9A-Za-z]* {lineStart=false;}; // identifier of a variable, routine, etc.
@@ -138,7 +133,8 @@ NUM_LITERAL // TODO: leading +/- should be valid as well but treat them as unary
     |   INT                 // -3, 45
     ;
 
-
+DOT: '.' {lineStart=false;} {System.out.println("setfalse");};
+FLAGS : '$$' | '$' | DOT | '@';
 INTX :   '0' | [1-9] [0-9]* ; // no leading zeros
 INT :   [0-9]+ ; // no leading zeros
 fragment EXP :   [Ee] [+\-]? INT ; // \- since - means "range" inside [...]

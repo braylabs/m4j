@@ -169,7 +169,30 @@ public class MInterpreterTests {
 
 		interp.evalLine("W -\"12 monkeys\"");
 		assertEquals("-12", proc.toString());
+	}
+	
+	@Test
+	public void testIndentLine() {
+		// indented lines should not execute on their own
+		interp.evalLine(". . W 1");
+		assertEquals("", proc.toString());
 		
-
+		// two un-indented lines should both run
+		interp.evalLine("W 1\nW 2");
+		assertEquals("12", proc.toString());
+		
+		// no indent should run of course
+		interp.evalLine("W 1");
+		assertEquals("1", proc.toString());
+		
+		// first line should run, not second line
+		interp.evalLine("W 1\n. W 2");
+		assertEquals("1", proc.toString());
+	}
+	
+	@Test
+	public void testInvokeFunctions() {
+		interp.evalLine("W $P(\"FE FI FO FUM\",\" \",2)");
+		assertEquals("FI", proc.toString());
 	}
 }
