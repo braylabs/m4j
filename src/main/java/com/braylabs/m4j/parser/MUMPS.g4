@@ -50,13 +50,13 @@ epArgs
 
 /** REFS are functions, routines, globals, locals, etc (but not commands) */
 ref 
-	: FLAGS? ID '^' ID '(' args ')'
-    | FLAGS? ID '(' args ')'
+	: FLAGS? ID '^' ID '(' args ')' // routine ref w/ args and entry point
+	| FLAGS? ID '^' ID            // routine w/ entry point reference
     | FLAGS? '^' ID '(' args ')' // global reference w/ args
-    | FLAGS? '^' ID // global reference wo/ args
-	| FLAGS? ID '^' ID
+    | '^' ID              		 // global reference wo/ args
+    | '^(' args ')'       		// naked global reference
+    | FLAGS? ID '(' args ')'     
     | FLAGS? ID
-    | '^(' args ')' // naked global reference
 ;
 
 args

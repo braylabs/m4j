@@ -34,10 +34,14 @@ public class M4JRuntime {
 
 
 	public M4JRuntime() {
+		this(null);
 	}
 	
 	public M4JRuntime(MVStore store) {
 		this.mvstore = store;
+		
+		// Initialize with system functions in MUMPS
+		registerRoutine(new JavaClassProxy(MUMPS.class));
 	}
 	
 	public void registerRoutine(RoutineProxy routine) {

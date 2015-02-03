@@ -17,9 +17,11 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
+import com.braylabs.m4j.lang.MUMPS;
 import com.braylabs.m4j.lang.MVal;
 import com.braylabs.m4j.lang.MVal.BinaryOp;
 import com.braylabs.m4j.lang.MVal.UnaryOp;
+import com.braylabs.m4j.lang.RoutineProxy;
 import com.braylabs.m4j.parser.MCmd.MCmdI;
 import com.braylabs.m4j.parser.MCmd.MCmdQ;
 import com.braylabs.m4j.parser.MUMPSParser.ArgContext;
@@ -344,11 +346,15 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			
 			if (lhs instanceof RefContext) {
 				// first get the variable ref
-				MVar var = visitRef((RefContext) lhs);
+				Object var = visitRef((RefContext) lhs);
+				
+				if (!(var instanceof MVar)) {
+					throw new IllegalArgumentException("LHS of set must be a VAR reference");
+				}
 
 				// set the value
 				Object val = visit(rhs);
-				var.set(val);
+				((MVar) var).set(val);
 			} else {
 				throw new RuntimeException();
 			}
@@ -357,12 +363,46 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	}
 	
 	@Override
-	public MVar visitRef(RefContext ctx) {
+	public Object visitRef(RefContext ctx) {
+		// resolve flags and ids
+		String flags = (ctx.FLAGS() == null) ? "" : ctx.FLAGS().getText();
+		List<TerminalNode> ids = ctx.ID();
+		String id1 = (ids.size() > 0) ? ids.get(0).getText() : null;
+		String id2 = (ids.size() > 1) ? ids.get(1).getText() : null;
+		
+		// if it starts with a $ is an intrinsic (system) function OR special variable 
+		if (flags.equals("$") && id1 != null) {
+			RoutineProxy proxy = proc.getRoutine("$" + id1 + "^SYS");
+			if (proxy == null) {
+				// can't find it as a system func, try as a special var
+				MVar ret = proc.getLocal("$"+ id1);
+				if (ret == null) {
+					throw new IllegalArgumentException("Unable to resolve: $" + id1 + " as system function or special variable");
+				}
+				return ret;
+			}
+			
+			// resolve args (if any)
+			Object[] args = new Object[0];
+			if (ctx.args() != null) {
+				args = new Object[ctx.args().arg().size()];
+				for (int i=0; i < args.length; i++) {
+					args[i] = visitArg(ctx.args().arg(i));
+				}
+			}
+			
+			try {
+				return MVal.valueOf(proxy.call(null, "$"+id1,proc, args));
+			} catch (Exception e) {
+				throw new IllegalArgumentException("Error calling: $"+id1, e);
+			}
+		}
+		
 		MVar ret = proc.getLocal(ctx.ID(0).getText());
 		
 		if (ctx.args() != null) {
 			for (ArgContext arg : ctx.args().arg()) {
-				ret = ret.get(visitArg(arg));
+				ret = ret.get((Comparable) visitArg(arg));
 			}
 		}
 		
@@ -370,11 +410,13 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	}
 	
 	@Override
-	public String visitArg(ArgContext ctx) {
+	public Object visitArg(ArgContext ctx) {
 		// strip the "'s off string literals
 		if (ctx.STR_LITERAL() != null) {
 			String ret = ctx.STR_LITERAL().getText();
 			return ret.substring(1, ret.length()-1);
+		} else if (ctx.NUM_LITERAL() != null) {
+			return Integer.parseInt(ctx.NUM_LITERAL().getText());
 		}
 		return ctx.toString();
 	}

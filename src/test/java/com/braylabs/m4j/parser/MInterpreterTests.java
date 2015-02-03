@@ -16,6 +16,7 @@ import com.braylabs.m4j.lang.MVal.UnaryOp;
 
 public class MInterpreterTests {
 	
+	private static M4JRuntime runtime = new M4JRuntime();
 	private MInterpreter interp;
 	private M4JProcess proc;
 	
@@ -23,7 +24,7 @@ public class MInterpreterTests {
 		private ByteArrayOutputStream baos;
 
 		public TestMContext() {
-			this(null);
+			this(runtime);
 		}
 		
 		public TestMContext(M4JRuntime runtime) {
@@ -192,7 +193,7 @@ public class MInterpreterTests {
 	
 	@Test
 	public void testInvokeFunctions() {
-		interp.evalLine("W $P(\"FE FI FO FUM\",\" \",2)");
-		assertEquals("FI", proc.toString());
+		interp.evalLine("W $P(\"FE FI FO FUM\",\" \",2, 3)");
+		assertEquals("FI FO", proc.toString());
 	}
 }

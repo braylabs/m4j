@@ -33,7 +33,7 @@ public interface RoutineProxy {
 		@Target(ElementType.METHOD)
 		@Retention(RetentionPolicy.RUNTIME)
 		public @interface M4JEntryPoint {
-			String name();
+			String[] name();
 		}
 		
 		
@@ -78,7 +78,7 @@ public interface RoutineProxy {
 			for (Method m : clazz.getMethods()) {
 				M4JEntryPoint ep = m.getAnnotation(M4JEntryPoint.class);
 				if (ep != null) {
-					eps.put(ep.name(), m);
+					for (String name : ep.name()) eps.put(name, m);
 				} else {
 					eps.put(m.getName(), m);
 				}

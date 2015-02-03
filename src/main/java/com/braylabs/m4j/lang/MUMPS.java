@@ -10,8 +10,11 @@ import java.util.StringTokenizer;
 
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.global.MVar.MVarKey;
+import com.braylabs.m4j.lang.RoutineProxy.JavaClassProxy.M4JEntryPoint;
+import com.braylabs.m4j.lang.RoutineProxy.JavaClassProxy.M4JRoutine;
 import com.braylabs.m4j.parser.MParserUtils;
 
+@M4JRoutine(name="SYS")
 public class MUMPS {
 	
 	public static final Set<String> FUNCTION_SET = Collections
@@ -301,6 +304,7 @@ public class MUMPS {
 		return $PIECE(str, delim, first, first);
 	}
 
+	@M4JEntryPoint(name={"$P","$PIECE"})
 	public static final String $PIECE(String str, String delim, int first, int last) {
 		StringTokenizer st = new StringTokenizer(str, delim);
 		String ret = "";
