@@ -6,7 +6,7 @@ import java.util.Map;
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.parser.MParserUtils;
 
-/** Intended to represent a M Value which can be evaluated in a variety of ways implmenent operators as well */
+/** Intended to represent a M Value which can be evaluated in a variety of ways implement operators as well */
 public class MVal {
 	
 	Number numVal;
@@ -21,7 +21,8 @@ public class MVal {
 	public MVal apply(UnaryOp op) {
 		switch(op) {
 			// string to number
-			case POS: return new MVal(MParserUtils.evalNumericValue(this.strVal));
+			case POS: return new MVal(this.numVal);
+			case NEG: return new MVal(this.numVal.intValue()*-1);
 			case NOT: return new MVal((this.numVal.equals(0)) ? 1 : 0);
 			default:
 				throw new RuntimeException("Operator not implemented: "  + op);
@@ -45,9 +46,11 @@ public class MVal {
 			
 			// logical comparison
 			case GT: numval = (n1 > n2) ? 1d : 0d; break;
-			case GTE: numval = (n1 >= n2) ? 1d : 0d; break;
+			case GTE: 
+			case NLT: numval = (n1 >= n2) ? 1d : 0d; break;
 			case LT: numval = (n1 < n2) ? 1d : 0d; break;
-			case LTE: numval = (n1 <= n2) ? 1d : 0d; break;
+			case LTE: 
+			case NGT: numval = (n1 <= n2) ? 1d : 0d; break;
 			
 			// If the two operands are of different types, both operands are converted to strings 
 			// and those strings are compared.
@@ -89,6 +92,10 @@ public class MVal {
 		return numVal;
 	}
 	
+	public boolean isTruthy() {
+		return !numVal.equals(0);
+	}
+	
 	public static final MVal valueOf(Object obj) {
 		if (obj instanceof MVal) return (MVal) obj;
 		if (obj instanceof MVar) { 
@@ -101,18 +108,26 @@ public class MVal {
 	
 	public enum BinaryOp {
 		ADD("+"),SUB("-"),MULT("*"),DIV("/"),INT_DIV("\\"),EXP("**"),MOD("#"), // arithmetic
-		GT(">"),GTE(">=","'<"),LT("<"),LTE("<=","'>"), EQ("="), NEQ("'="), // logical comparison
+		GT(">"),GTE(">="),NLT("'<"),LT("<"),LTE("<="),NGT("'>"), EQ("="), NEQ("'="), // logical comparison
 		CONCAT("_"),CONTAINS("["),NOT_CONTAINS("'["), MATCH("?"), NOT_MATCH("'?"), // string
-		FOLLOWS("]"), NOT_FOLLOWS("']"), SORT_AFTER("]]"), NOT_SORT_AFTER("']]"); // string
+		FOLLOWS("]"), NOT_FOLLOWS("']"), SORT_AFTER("]]"), NOT_SORT_AFTER("']]"), // string
+		LP("(",4), RP(")",4); // non-associative operators
 
-		private String[] symbols;
-		BinaryOp(String... symbols) {
-			this.symbols = symbols;
+		private String symbol;
+		private int type=2; // 1=unary,2=binary,3=ambiguous,4=other
+		
+		BinaryOp(String symbol) {
+			this.symbol = symbol;
+		}
+		
+		BinaryOp(String symbol, int type) {
+			this.symbol = symbol;
+			this.type = type;
 		}
 		
 		@Override
 		public String toString() {
-			return this.symbols[0];
+			return this.symbol;
 		}
 		
 	}
@@ -136,9 +151,7 @@ public class MVal {
 	static {
 		// index the operators by their symbol
 		for (BinaryOp op : BinaryOp.values()) {
-			for (String symbol : op.symbols) {
-				BINARY_OPS.put(symbol, op);
-			}
+			BINARY_OPS.put(op.toString(), op);
 		}
 		
 		for (UnaryOp op : UnaryOp.values()) {
