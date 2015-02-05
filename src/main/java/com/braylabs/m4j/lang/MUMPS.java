@@ -59,18 +59,20 @@ public class MUMPS {
 	public static final MVar $HOROLOG() {
 		return new MVar.TreeMVar("$HOROLOG", "63568,56134");
 	}
-	
-	public static final int $L(Object variable, Object delim) {
-		if (variable == null) return 0;
-		if (delim == null) return 1;
+
+	@M4JEntryPoint(name={"$L","$LENGTH"})
+	public static final int $L(String variable) {
+		return $L(variable, null);
+	}
+
+	@M4JEntryPoint(name={"$L","$LENGTH"})
+	public static final int $L(String str, Object delim) {
+		if (str == null) return 0;
 		
 		// evaluate as string
-		String str = variable.toString();
+		return str.length();
 
-		HashSet<String> s = new HashSet<>();
-		s.add(delim.toString());
-		List<String> ret = MParserUtils.tokenize(str, s, false, false, false, false, false);
-		return ret.size();
+		// TODO: Finish the delimiter stuff
 	}
 	
 	// $INCREMENT function ----------------------------------------------------
@@ -113,18 +115,12 @@ public class MUMPS {
 	
 	// $DATA function ---------------------------------------------------------
 	
-	public static final int $D(MVar variable) {
-		return $DATA(variable, null);
-	}
-	
-	public static final int $D(MVar variable, MVar target) {
-		return $DATA(variable, target);
-	}
-
+	@M4JEntryPoint(name={"$D","$DATA"})
 	public static final int $DATA(MVar variable) {
 		return $DATA(variable, null);
 	}
 
+	@M4JEntryPoint(name={"$D","$DATA"})
 	public static final int $DATA(MVar variable, MVar target) {
 		boolean hasData = variable.isDefined();
 		boolean hasDesc = variable.hasDescendents();
@@ -142,10 +138,11 @@ public class MUMPS {
 	
 	// $GET function ----------------------------------------------------------
 
+	@M4JEntryPoint(name={"$G","$GET"})
 	public static final Object $G(MVar variable) {
 		return $GET(variable, null);
 	}
-	
+
 	public static final Object $G(MVar variable, Object defaultVal) {
 		return $GET(variable, defaultVal);
 	}
@@ -154,11 +151,13 @@ public class MUMPS {
 		return $GET(variable, defaultVal);
 	}
 
+	@M4JEntryPoint(name={"$G","$GET"})
 	public static final Object $GET(MVar variable, Object defaultVal) {
 		if (variable.isDefined()) return variable.val();
 		return defaultVal;
 	}
-	
+
+	@M4JEntryPoint(name={"$G","$GET"})
 	public static final Object $GET(MVar variable, MVar defaultVal) {
 		if (variable.isDefined()) return variable.val();
 
@@ -170,22 +169,17 @@ public class MUMPS {
 	
 	// $ORDER function --------------------------------------------------------
 
-	public static final Object $O(MVar variable) {
+	@M4JEntryPoint(name={"$O","$ORDER"})
+	public static final Object $ORDER(MVar variable) {
 		return $ORDER(variable, 1, null);
 	}
-	
-	public static final Object $O(MVar variable, int direction) {
-		return $ORDER(variable, direction, null);
-	}
-	
-	public static final Object $O(MVar variable, int direction, MVar target) {
-		return $ORDER(variable, direction, target);
-	}
-	
+
+	@M4JEntryPoint(name={"$O","$ORDER"})
 	public static final Object $ORDER(MVar variable, int direction) {
 		return $ORDER(variable, direction, null);
 	}
 	
+	@M4JEntryPoint(name={"$O","$ORDER"})
 	public static final Object $ORDER(MVar variable, int direction, MVar target) {
 		MVarKey ret = null;
 		if (direction == 1) {
@@ -284,22 +278,12 @@ public class MUMPS {
 	}
 	
 	// $PIECE function --------------------------------------------------------
-	public static final String $P(String str, String delim) {
-		return $PIECE(str, delim, 1, 1);
-	}
-
-	public static final String $P(String str, String delim, int first) {
-		return $PIECE(str, delim, first, first);
-	}
-
-	public static final String $P(String str, String delim, int first, int last) {
-		return $PIECE(str, delim, first, last);
-	}
-	
+	@M4JEntryPoint(name={"$P","$PIECE"})
 	public static final String $PIECE(String str, String delim) {
 		return $PIECE(str, delim, 1, 1);
 	}
 
+	@M4JEntryPoint(name={"$P","$PIECE"})
 	public static final String $PIECE(String str, String delim, int first) {
 		return $PIECE(str, delim, first, first);
 	}
@@ -336,18 +320,13 @@ public class MUMPS {
 	
 	// $REverse function ------------------------------------------------------
 	
-	public static final int $RE(int val) {
-		return $REVERSE(val);
-	}
 	
-	public static final String $RE(String str) {
-		return $REVERSE(str);
-	}
-	
+	@M4JEntryPoint(name={"$R","$REVERSE"})
 	public static final int $REVERSE(int val) {
 		return Integer.parseInt($REVERSE(new Integer(val).toString()));	
 	}
 	
+	@M4JEntryPoint(name={"$R","$REVERSE"})
 	public static final String $REVERSE(String str) {
 		if (str == null) return "";
 		return new StringBuffer(str).reverse().toString();

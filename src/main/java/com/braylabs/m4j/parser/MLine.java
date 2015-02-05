@@ -1,11 +1,9 @@
 package com.braylabs.m4j.parser;
 
-import static com.braylabs.m4j.lang.MUMPS.$P;
+import static com.braylabs.m4j.lang.MUMPS.$PIECE;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 
@@ -175,8 +173,8 @@ public class MLine extends AbstractMToken<MLineItem<?>> {
 			// TODO: Something about internal/private entrypoints, need to parse that here....
 			
 			// split the value into the name, and args list
-			this.epname = $P(value, "(", 1);
-			String[] argstrs  = $P($P(value, "(", 2), ")", 1).split(",");
+			this.epname = $PIECE(value, "(", 1);
+			String[] argstrs  = $PIECE($PIECE(value, "(", 2), ")", 1).split(",");
 			
 			// convert the args into arg objects
 			List<MLocalVarRef> args = new ArrayList<>();

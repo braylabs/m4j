@@ -12,6 +12,7 @@ import org.h2.mvstore.MVStore;
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.global.MVar.TreeMVar;
 import com.braylabs.m4j.lang.RoutineProxy.JavaClassProxy;
+import com.braylabs.m4j.parser.MInterpreter;
 import com.braylabs.m4j.parser.MLine;
 import com.braylabs.m4j.parser.MCmd.MParseException;
 
@@ -115,6 +116,7 @@ public class M4JRuntime {
 		private Map<String, MVar> specialVars = new HashMap<>();
 		private Map<String, Object> cache = new HashMap<>();
 		private String trace;
+		private MInterpreter interp;
 		
 		public M4JProcess(M4JRuntime runtime, int ID) {
 			this.runtime = runtime;
@@ -122,6 +124,13 @@ public class M4JRuntime {
 			// setup special vars
 			MVar v = new TreeMVar("$JOB", ID);
 			specialVars.put(v.getName(), v);
+			
+			// every process has its own instance of the interpreter
+			this.interp = new MInterpreter(this);
+		}
+		
+		public MInterpreter getInterpreter() {
+			return interp;
 		}
 		
 		protected MVar getSpecialVar(String name) {

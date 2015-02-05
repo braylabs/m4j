@@ -3,6 +3,9 @@ package com.braylabs.m4j.parser;
 import static org.junit.Assert.assertEquals;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,9 +13,11 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.lang.M4JRuntime;
 import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
 import com.braylabs.m4j.lang.MVal.UnaryOp;
+import com.braylabs.m4j.lang.RoutineProxy;
 
 public class MInterpreterTests {
 	
@@ -192,8 +197,44 @@ public class MInterpreterTests {
 	}
 	
 	@Test
-	public void testInvokeFunctions() {
+	public void testInvokeSystemFunctions() {
+		
+		// multiple java methods mapped to $P, $PIECE, should pick one based on available params
 		interp.evalLine("W $P(\"FE FI FO FUM\",\" \",2, 3)");
 		assertEquals("FI FO", proc.toString());
+		
+		interp.evalLine("W $P(\"FE FI FO FUM\",\" \",2)");
+		assertEquals("FI", proc.toString());
+
+		interp.evalLine("W $P(\"FE FI FO FUM\",\" \")");
+		assertEquals("FE", proc.toString());
+	}
+	
+	@Test
+	public void testInvokeSystemFunctions$O() {
+		// some functions take variables and examine globals, etc
+		MVar var = proc.getLocal("FOO");
+		var.get("1").set("A");
+		var.get("2").set("B");
+		var.get("3").set("C");
+		
+		// subscripted
+		interp.evalLine("W $O(FOO(2))");
+		assertEquals("3", proc.toString());
+		
+		// unsubscripted
+		interp.evalLine("W $O(FOO)");
+		assertEquals("1", proc.toString());
+		
+		
+	}
+	
+	@Test
+	public void testLoadInvokeRoutine() throws IOException, URISyntaxException {
+		File f = new File( M4JRuntime.class.getResource("XLFSTR.int").toURI());
+		runtime.registerRoutine(new RoutineProxy.MInterpRoutineProxy(f));
+		
+		interp.evalLine("W $$REPEAT^XLFSTR(\"A\",3)");
+		assertEquals("AAA", proc.toString());
 	}
 }

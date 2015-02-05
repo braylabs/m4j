@@ -1,5 +1,7 @@
 package com.braylabs.m4j.parser;
 
+import java.io.IOException;
+import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
@@ -17,7 +19,6 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
-import com.braylabs.m4j.lang.MUMPS;
 import com.braylabs.m4j.lang.MVal;
 import com.braylabs.m4j.lang.MVal.BinaryOp;
 import com.braylabs.m4j.lang.MVal.UnaryOp;
@@ -25,14 +26,17 @@ import com.braylabs.m4j.lang.RoutineProxy;
 import com.braylabs.m4j.parser.MCmd.MCmdI;
 import com.braylabs.m4j.parser.MCmd.MCmdQ;
 import com.braylabs.m4j.parser.MUMPSParser.ArgContext;
+import com.braylabs.m4j.parser.MUMPSParser.ArgsContext;
 import com.braylabs.m4j.parser.MUMPSParser.CmdContext;
 import com.braylabs.m4j.parser.MUMPSParser.CmdListContext;
 import com.braylabs.m4j.parser.MUMPSParser.ExprContext;
+import com.braylabs.m4j.parser.MUMPSParser.FileContext;
 import com.braylabs.m4j.parser.MUMPSParser.LineContext;
 import com.braylabs.m4j.parser.MUMPSParser.LinesContext;
 import com.braylabs.m4j.parser.MUMPSParser.LiteralContext;
 import com.braylabs.m4j.parser.MUMPSParser.PceContext;
 import com.braylabs.m4j.parser.MUMPSParser.RefContext;
+import com.braylabs.m4j.parser.MUMPSParser.RoutineLineContext;
 
 public class MInterpreter extends MUMPSBaseVisitor<Object> {
 
@@ -47,7 +51,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	public Object visitLine(LineContext ctx) {
 		
 		// count its indent length
-		int indent=ctx.DOT().size();
+		int indent= (ctx.DOT() == null) ? 0 : ctx.DOT().size();
 		
 		// only execute if its indent level 0 for now
 		if (indent > 0) return null;
@@ -61,6 +65,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 				// ???
 			} else if (ret instanceof MCmdQ.QuitReturn) {
 				// quit and return;
+				return ret;
 			} else if (ret == MCmdI.FALSE) {
 				// returned false, stop processing this line
 				break;
@@ -116,7 +121,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			}
 		}
 		
-		switch (name) {
+		switch (name.toUpperCase()) {
 			case "W":
 			case "WRITE":
 				return CMD_W(ctx);
@@ -126,6 +131,12 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			case "I":
 			case "IF":
 				return CMD_I(ctx);
+			case "N":
+			case "NEW":
+				return CMD_N(ctx);
+			case "Q":
+			case "QUIT":
+				return CMD_Q(ctx);
 			default:
 				throw new IllegalArgumentException("Commmand not implemented: " + name);
 		}
@@ -141,72 +152,8 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		return MVal.valueOf(ctx.getText());
 	}
 	
-	private Object CMD_I(CmdContext ctx) {
-		for (ExprContext expr : ctx.exprList().expr()) {
-			
-			// each expression should return boolean
-			MVal ret = (MVal) visit(expr);
-			if (ret != null && !ret.isTruthy()) {
-				return MCmdI.FALSE;
-			}
-		}
-		
-		return MCmdI.TRUE;
-	}
 	
-	/*
-	@Override
-	public Object visitAssignExpr(AssignExprContext ctx) {
-		System.out.println("visitAssignExpr");
-		return null;
-	}
-
-	@Override
-	public MVal visitUnaryExpr(UnaryExprContext ctx) {
-		
-		String op = ctx.unaryop.getText();
-		MVal rhs = (MVal) visit(ctx.expr());
-		if (!MVal.UNARY_OPS.containsKey(op)) {
-			throw new IllegalStateException("Unrecognized unary operator: " + op);
-		}
-		MVal ret = rhs.apply(MVal.UNARY_OPS.get(op));
-		return ret;
-	}
-	*/
 	
-	/*
-	@Override
-	public MVal visitBinaryOpExpr(BinaryOpExprContext ctx) {
-		List<Object> postfix = infixToPostfix(ctx.children);
-		System.out.println("POSTFIX: " + postfix);
-		
-		// evaluate stack, stop when there is only 1 remaining item and return it
-		for (int i=0; i < postfix.size() && postfix.size() > 1; i++) {
-			// if this item is not an operator, keep going
-			Object op = postfix.get(i);
-			if (op instanceof BinaryOp) {
-//				if (postfix.size() < 3) throw new IllegalStateException("Expected at least 2 operands to still be on stack for binary operator");
-				
-				
-				
-				// we have an operator, remove it and the LHS and RHS
-				postfix.remove(i--);
-				
-				// convert/visit the lhs/rhs if needed
-				Object rhs = postfix.remove(i--);
-				Object lhs = postfix.remove(i--);
-				MVal val1 = MVal.valueOf((lhs instanceof ParseTree) ? visit((ParseTree) lhs) : lhs);
-				MVal val2 = MVal.valueOf((rhs instanceof ParseTree) ? visit((ParseTree) rhs) : rhs);
-				
-				// evaluate and push back on stack
-				postfix.add(i+1, val1.apply((BinaryOp) op, val2));
-			}
-			
-			
-		}
-		return (MVal) postfix.get(0);
-	}
-	*/
 
 	@Override
 	public MVal visitExpr(ExprContext ctx) {
@@ -320,6 +267,19 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	}
 
 	
+	private Object CMD_I(CmdContext ctx) {
+		for (ExprContext expr : ctx.exprList().expr()) {
+			
+			// each expression should return boolean
+			MVal ret = (MVal) visit(expr);
+			if (ret != null && !ret.isTruthy()) {
+				return MCmdI.FALSE;
+			}
+		}
+		
+		return MCmdI.TRUE;
+	}
+
 	private Object CMD_W(CmdContext ctx) {
 		// loop through each expression, write to output stream 
 		for (ExprContext expr : ctx.exprList().expr()) {
@@ -362,6 +322,23 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		return null;
 	}
 	
+	private Object CMD_N(CmdContext ctx) {
+		// collect variable name(s)
+		List<String> vars = new ArrayList<>();
+		for (ExprContext expr : ctx.exprList().expr()) {
+			// should contain a ref, but treat it as a literal value not a variable reference
+			vars.add(expr.ref().getText());
+		}
+		// newed all them vars!
+		proc.push(false, vars.toArray(new String[]{}));
+		return null;
+	}
+	
+	private Object CMD_Q(CmdContext ctx) {
+		// return the value of the first expression
+		return visit(ctx.exprList().expr(0));
+	}
+	
 	@Override
 	public Object visitRef(RefContext ctx) {
 		// resolve flags and ids
@@ -392,20 +369,51 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			}
 			
 			try {
-				return MVal.valueOf(proxy.call(null, "$"+id1,proc, args));
+				return MVal.valueOf(proxy.call("$"+id1,proc, args));
 			} catch (Exception e) {
 				throw new IllegalArgumentException("Error calling: $"+id1, e);
 			}
+		} else if (flags.equals("$$")) {
+			// $$ indicates invoke a routine (w or w/o an entrypoint indicator)
+			String ep = (id1 != null && id2 != null) ? id1 : null;
+			String routine = (id1 != null && id2 != null) ? id2 : id1;
+			
+			RoutineProxy proxy = proc.getRoutine(routine);
+			if (proxy == null) {
+				throw new IllegalArgumentException("Routine is undefined: " + routine);
+			}
+			
+			// invoke routine, return result
+			try {
+				return proxy.call(ep, proc, resolveArgsToMVals(ctx.args()));
+			} catch (Exception e) {
+				throw new IllegalArgumentException("Error invoking ep/routine: " + ep +"/" + routine, e);
+			}
 		}
 		
-		MVar ret = proc.getLocal(ctx.ID(0).getText());
+		// if flags starts with a ^ its a global, otherwise its a local
+		MVar ret = null;
+		if (flags.equals("^")) {
+			ret = proc.getGlobal(flags + ctx.ID(0).getText());
+		} else {
+			ret = proc.getLocal(ctx.ID(0).getText());
+		}
 		
+		// if its a subscripted global/var, resolve that as well
 		if (ctx.args() != null) {
 			for (ArgContext arg : ctx.args().arg()) {
 				ret = ret.get((Comparable) visitArg(arg));
 			}
 		}
 		
+		return ret;
+	}
+	
+	private List<MVal> resolveArgsToMVals(ArgsContext args) {
+		List<MVal> ret = new ArrayList<>();
+		for (ArgContext arg : args.arg()) {
+			ret.add(MVal.valueOf(visitArg(arg)));
+		}
 		return ret;
 	}
 	
@@ -417,6 +425,8 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			return ret.substring(1, ret.length()-1);
 		} else if (ctx.NUM_LITERAL() != null) {
 			return Integer.parseInt(ctx.NUM_LITERAL().getText());
+		} else if (ctx.ref() != null) {
+			return visitRef(ctx.ref());
 		}
 		return ctx.toString();
 	}
@@ -428,9 +438,19 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	}
 	
 	/** build and execute a lexer and parser and parse the stream */
-	private static MUMPSParser parse(String stream) {
+	public static MUMPSParser parse(String stream) {
 		//  build and execute a lexer and parser
 		ANTLRInputStream input = new ANTLRInputStream(stream);
+		MUMPSLexer lexer = new MUMPSLexer(input);
+		CommonTokenStream tokens = new CommonTokenStream(lexer);
+		return new MUMPSParser(tokens);
+	}
+	
+	/** build and execute a lexer and parser and parse the stream 
+	 * @throws IOException */
+	public static MUMPSParser parse(Reader reader) throws IOException {
+		//  build and execute a lexer and parser
+		ANTLRInputStream input = new ANTLRInputStream(reader);
 		MUMPSLexer lexer = new MUMPSLexer(input);
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
 		return new MUMPSParser(tokens);
@@ -460,18 +480,30 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		return visit(ctx);
 	}
 	
-	public static void main(String[] args) {
-		String m = " S FOO(\"bar\")=\"hello\",FOO(\"baz\")=\"world!\" I FOO(\"bar\")=\"hello\" W !,FOO(\"bar\")_\" \"_FOO(\"baz\"),! ; should write hello world";
-//		m = " S FOO=\"Hell\",BAR=\"Wor\" W !,FOO_\" \"_BAR,1+1\n";
+	public Object evalRoutine(FileContext filectx, String entrypoint, Object... args) {
+		Object ret = null;
 
-		// create a new process and interpreter
-		M4JProcess proc = new M4JProcess(null, 1);
-		proc.setOutputStream(System.err);
-		MInterpreter interp = new MInterpreter(proc);
+		// copy over variables onto stack
 		
-		// evaluate the line
+		// process each line until we get a quit
+		// TODO: This is horribly inefficient
+		boolean exec = (entrypoint == null); // if no entrypoint specified, start executing immediately at the top
+		for (RoutineLineContext rlc : filectx.routineLine()) {
+			System.out.println("EP: " + rlc.entryPoint());
+			if (exec) {
+				ret = visitLine(rlc.line());
+				if (ret instanceof MCmdQ.QuitReturn) {
+					// quit command returned a value, return that and stop processing further lines
+					ret = ((MCmdQ.QuitReturn) ret).getValue();
+					break;
+				}
+			} else if (rlc.entryPoint() != null && rlc.entryPoint().ID().getText().equals(entrypoint)) {
+				// this line is the entrypoint line matching the requested entrypoint, setup args, execute subsequent lines
+				exec = true;
+			}
+		}
 		
-		System.out.println(interp.evalLine(m));
+		return ret;
 	}
 	
 	public static class UnderlineErrorListener extends BaseErrorListener {

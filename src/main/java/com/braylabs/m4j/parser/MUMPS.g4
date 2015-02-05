@@ -2,10 +2,12 @@ grammar MUMPS;
 @lexer::members { boolean lineStart = true; }
 
 file
-	: routineHeaderLine? routineLine+ EOL
+	: routineHeaderLine? routineLine+ EOF
 ;
 
-/* eg: VPRJ^INT^1^62896,42379.33251^0 */
+/* eg: VPRJ^INT^1^62896,42379.33251^0 
+ * TODO: not working b/c ^INT^ is not a valid token
+ * */
 routineHeaderLine
 	: ID '^INT^1^' NUM_LITERAL ',' NUM_LITERAL '^0' EOL
 ;
@@ -13,14 +15,16 @@ routineHeaderLine
 routineLine
 	: entryPoint cmdList lineEnd // single-line entry point w/ commands
 	| entryPoint lineEnd // entry point-only line
-	| line;
+	| line
+;
 
 
 // TODO: Cant seem to get this to accept either EOL or EOF, it gets into infinite loop.
-lines: line+ EOF;
+lines: line+;
 line 
 	: LEADING_WS? lineEnd // comment only line
 	| LEADING_WS? DOT* cmdList lineEnd // indented line
+	| LEADING_WS? cmdList COMMENT? // very last line of routine is a bit tricky, can't match EOL but could be comment, likely indented
 ;
 
 cmdList
@@ -94,21 +98,23 @@ expr
 expr 
 	// strange results with UNARY_OP expr, doesn't seem to match -1?!? but this does
 	: ref '=' expr // assignment
-//	| ref ('?' | '\'?') pattern // pattern match case
 	| (AMBIG_OP|UNARY_OP) expr
 	| expr (BIN_OP|AMBIG_OP) expr
+	| expr ('?' | '\'?') exprPattern // pattern match case
 	| ref
 	| literal
 	| '(' expr ')'
 	| '(' ID (',' ID)* ')'
 	;
 
-//exprPattern: ('.' | NUM_LITERAL) (('A'|'C'|'E'|'L'|'N'|'P'|'U')+ | STR_LITERAL)+;
+//X1?1"^"1"[".E1"]".E
+exprPattern: exprPatternItem+;
+exprPatternItem: (DOT | NUM_LITERAL) (ID | STR_LITERAL)+;
 
 
 
 // TODO: ? NUM_LITERAL not appropriate for full pattern matching operator
-literal : STR_LITERAL | NUM_LITERAL	| '!' | '?' NUM_LITERAL;
+literal : STR_LITERAL | NUM_LITERAL	| '!';
 	
 
 BIN_OP
@@ -116,16 +122,15 @@ BIN_OP
 	| '#' | '*' | '**' | '/' | '\\' // arithmetic
 	| '>' | '>=' | '\'>' | '<' | '<=' | '\'<' // logical comparison 
 	| '_' | '[' | '\'['| ']' | '\']' | ']]' | '\']]' // string 
-//	| '&'| '!' // not used?
+	| '&' // logical operators
 ;
 AMBIG_OP: '-' | '+';
 UNARY_OP: '\'';
 
 EOL: '\r'? '\n' {lineStart=true;};
 LEADING_WS : [ \t]+ {lineStart}? {lineStart=false;};
-WS : [ \t]+ {lineStart=false;} -> channel(HIDDEN);
+WS : [ \t]+ {lineStart=false;}-> channel(HIDDEN);
 ID  : [A-Za-z%][0-9A-Za-z]* {lineStart=false;}; // identifier of a variable, routine, etc.
-//ID_CMD : [A-Za-z]+ ; // commands cannot have numbers in them
 STR_LITERAL : '"' ('""'|~'"')* '"';
 NUM_LITERAL // TODO: leading +/- should be valid as well but treat them as unary operators
     :   INT '.' [0-9]+ EXP? // 1.35, 1.35E-9, 0.3, -4.5
@@ -133,7 +138,7 @@ NUM_LITERAL // TODO: leading +/- should be valid as well but treat them as unary
     |   INT                 // -3, 45
     ;
 
-DOT: '.' {lineStart=false;} {System.out.println("setfalse");};
+DOT: '.' {lineStart=false;};
 FLAGS : '$$' | '$' | DOT | '@';
 INTX :   '0' | [1-9] [0-9]* ; // no leading zeros
 INT :   [0-9]+ ; // no leading zeros

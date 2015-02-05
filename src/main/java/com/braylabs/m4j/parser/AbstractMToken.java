@@ -244,7 +244,7 @@ public abstract class AbstractMToken<T> implements Iterable<T>, MToken<T> {
 			}
 			
 			try {
-				return routine.call(routineName, entryPoint, ctx, args.toArray());
+				return routine.call(entryPoint, ctx, args.toArray());
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();

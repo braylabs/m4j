@@ -1,6 +1,6 @@
 package com.braylabs.m4j.parser;
 
-import static com.braylabs.m4j.lang.MUMPS.$P;
+import static com.braylabs.m4j.lang.MUMPS.$PIECE;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -85,7 +85,7 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		this.line = line;
 		this.cmdname = cmdname;
 		this.cmdvalue = cmdvalue;
-		this.cmd = $P(this.cmdname, ":", 1).toUpperCase();
+		this.cmd = $PIECE(this.cmdname, ":", 1).toUpperCase();
 	}
 	
 	@Override
@@ -99,8 +99,8 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 		int offset = 0;
 		
 		// look for a postconditional expr
-		this.cmd = $P(this.cmdname, ":", 1).toUpperCase();
-		String pce = $P(this.cmdname, ":", 2);
+		this.cmd = $PIECE(this.cmdname, ":", 1).toUpperCase();
+		String pce = $PIECE(this.cmdname, ":", 2);
 		if (!pce.isEmpty()) {
 			offset = getValue().indexOf(pce, offset);
 		}

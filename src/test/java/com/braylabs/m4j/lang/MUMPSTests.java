@@ -59,14 +59,14 @@ public class MUMPSTests {
 		var.get("C").set(3);
 		
 		// root node (unscripted) is always null (TODO: double check with cache)
-		assertNull($O(var));
+		assertNull($ORDER(var));
 		
 		// simple cases
-		assertEquals("B", $O(var.get("A")));
-		assertNull($O(var.get("C")));
+		assertEquals("B", $ORDER(var.get("A")));
+		assertNull($ORDER(var.get("C")));
 		
 		// with targer
-		$O(var.get("A"), 1, var.get("A","RESULTS"));
+		$ORDER(var.get("A"), 1, var.get("A","RESULTS"));
 		assertEquals("B", var.get("A", "RESULTS").val());
 		
 		// TODO: Test deep level does not jump up to shallow level
@@ -90,18 +90,18 @@ public class MUMPSTests {
 		MVar var = new TreeMVar("FOO");
 		
 		// check all the available values
-		assertEquals(0, $D(var));
+		assertEquals(0, $DATA(var));
 		var.set("FOO");
-		assertEquals(1, $D(var));
+		assertEquals(1, $DATA(var));
 		var.unset();
-		assertEquals(0, $D(var));
+		assertEquals(0, $DATA(var));
 		var.get(1,2,3).set("FOO");
-		assertEquals(10, $D(var));
+		assertEquals(10, $DATA(var));
 		var.set("FOO");
-		assertEquals(11, $D(var));
+		assertEquals(11, $DATA(var));
 		
 		// check writing return to a target variable
-		$D(var, var.get("RESULTS"));
+		$DATA(var, var.get("RESULTS"));
 		assertEquals(11, var.val("RESULTS"));
 	}
 	
@@ -211,32 +211,32 @@ public class MUMPSTests {
 	}
 	
 	@Test
-	public void test$P() {
+	public void test$PIECE() {
 		// single piece selection
-		assertEquals("foo", $P(str, d));
-		assertEquals("foo", $P(str, d, 1));
-		assertEquals("bar", $P(str, d, 2));
-		assertEquals("baz", $P(str, d, 3));
-		assertEquals("foo", $P(str, d, 1, 1));
-		assertEquals("bar", $P(str, d, 2, 2));
-		assertEquals("baz", $P(str, d, 3, 3));
+		assertEquals("foo", $PIECE(str, d));
+		assertEquals("foo", $PIECE(str, d, 1));
+		assertEquals("bar", $PIECE(str, d, 2));
+		assertEquals("baz", $PIECE(str, d, 3));
+		assertEquals("foo", $PIECE(str, d, 1, 1));
+		assertEquals("bar", $PIECE(str, d, 2, 2));
+		assertEquals("baz", $PIECE(str, d, 3, 3));
 		
 		// multi-piece selection
-		assertEquals("foo.bar", $P(str, d, 1, 2));
-		assertEquals("bar.baz", $P(str, d, 2, 3));
-		assertEquals("baz", $P(str, d, 3, 4));
-		assertEquals("foo.bar.baz", $P(str, d, 1, 3));
-		assertEquals("foo.bar.baz", $P(str, d, 1, 10));
+		assertEquals("foo.bar", $PIECE(str, d, 1, 2));
+		assertEquals("bar.baz", $PIECE(str, d, 2, 3));
+		assertEquals("baz", $PIECE(str, d, 3, 4));
+		assertEquals("foo.bar.baz", $PIECE(str, d, 1, 3));
+		assertEquals("foo.bar.baz", $PIECE(str, d, 1, 10));
 		
 		// empty return scenarios
-		assertEquals("", $P(str, "", 0)); // empty delimiter
-		assertEquals("", $P(str, d, 0)); // 1-based index
-		assertEquals("", $P(str, d, -1)); // < 1
-		assertEquals("", $P(str, d, 100)); // > token count
-		assertEquals("", $P(str, d, 2, 1)); // last < first
+		assertEquals("", $PIECE(str, "", 0)); // empty delimiter
+		assertEquals("", $PIECE(str, d, 0)); // 1-based index
+		assertEquals("", $PIECE(str, d, -1)); // < 1
+		assertEquals("", $PIECE(str, d, 100)); // > token count
+		assertEquals("", $PIECE(str, d, 2, 1)); // last < first
 		
 		// other cases
-		assertEquals(str, $P(str, "^", 1)); // ^ is not a valid delmiter, return full string
+		assertEquals(str, $PIECE(str, "^", 1)); // ^ is not a valid delmiter, return full string
 	}
 	
 	@Test
@@ -248,10 +248,10 @@ public class MUMPSTests {
 	
 	@Test
 	public void test$RE() {
-		assertEquals("cba", $RE("abc"));
-		assertEquals(321, $RE(123));
+		assertEquals("cba", $REVERSE("abc"));
+		assertEquals(321, $REVERSE(123));
 		
-		assertEquals("", $RE(""));
-		assertEquals("", $RE(null));
+		assertEquals("", $REVERSE(""));
+		assertEquals("", $REVERSE(null));
 	}
 }

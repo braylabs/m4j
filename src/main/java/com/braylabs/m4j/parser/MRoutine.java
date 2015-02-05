@@ -13,7 +13,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import com.braylabs.m4j.lang.RoutineProxy;
 import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
@@ -52,7 +51,7 @@ public class MRoutine extends AbstractMToken<MLine> implements RoutineProxy {
 	}
 	
 	@Override
-	public Object call(String name, String entrypoint, M4JProcess proc, Object... params) throws MParseException {
+	public Object call(String entrypoint, M4JProcess proc, Object... params) throws MParseException {
 		// get the lines to start evaluation at (evaluate
 		Iterator<MLine> itr = getEntryPointLines(entrypoint);
 		
