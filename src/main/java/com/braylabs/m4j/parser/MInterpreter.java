@@ -29,6 +29,7 @@ import com.braylabs.m4j.parser.MUMPSParser.ArgContext;
 import com.braylabs.m4j.parser.MUMPSParser.ArgsContext;
 import com.braylabs.m4j.parser.MUMPSParser.CmdContext;
 import com.braylabs.m4j.parser.MUMPSParser.CmdListContext;
+import com.braylabs.m4j.parser.MUMPSParser.EpArgsContext;
 import com.braylabs.m4j.parser.MUMPSParser.ExprContext;
 import com.braylabs.m4j.parser.MUMPSParser.FileContext;
 import com.braylabs.m4j.parser.MUMPSParser.LineContext;
@@ -55,24 +56,12 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		
 		// only execute if its indent level 0 for now
 		if (indent > 0) return null;
-		
-		// loop through each command and evaluate it
-		for (CmdContext cmd : ctx.cmdList().cmd()) {
-			
-			// if its a quit command and returns, stop evaluating
-			Object ret = visit(cmd);
-			if (ret == null) {
-				// ???
-			} else if (ret instanceof MCmdQ.QuitReturn) {
-				// quit and return;
-				return ret;
-			} else if (ret == MCmdI.FALSE) {
-				// returned false, stop processing this line
-				break;
-			}
-		}
-		
-		return null;
+
+		// if there are no commands skip it
+		if (ctx.cmdList() == null) return null;
+
+		// otherwise process command list
+		return visitCmdList(ctx.cmdList());
 	}
 	
 	@Override
@@ -82,8 +71,13 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		for (CmdContext cmd : ctx.cmd()) {
 			ret = visit(cmd);
 			
-			// if the command was an if statement, and it returns false, abort the line/command list
-			if (ret != null && ret == MCmdI.FALSE) {
+			if (ret == null) {
+				// ???
+			} else if (ret instanceof MCmdQ.QuitReturn) {
+				// quit and return;
+				return ret;
+			} else if (ret == MCmdI.FALSE) {
+				// returned false, stop processing this line
 				break;
 			}
 		}
@@ -336,7 +330,15 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	
 	private Object CMD_Q(CmdContext ctx) {
 		// return the value of the first expression
-		return visit(ctx.exprList().expr(0));
+		Object ret = null;
+		if (ctx.exprList() != null) {
+			ret = visit(ctx.exprList().expr(0));
+			
+			// wrap return value in marker class
+			ret = new MCmdQ.QuitReturn(ret);
+		}
+		
+		return ret;
 	}
 	
 	@Override
@@ -385,7 +387,8 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			
 			// invoke routine, return result
 			try {
-				return proxy.call(ep, proc, resolveArgsToMVals(ctx.args()));
+				List<MVal> args = resolveArgsToMVals(ctx.args());
+				return proxy.call(ep, proc, args.toArray(new Object[] {}));
 			} catch (Exception e) {
 				throw new IllegalArgumentException("Error invoking ep/routine: " + ep +"/" + routine, e);
 			}
@@ -405,6 +408,8 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 				ret = ret.get((Comparable) visitArg(arg));
 			}
 		}
+		
+		// if the variable is undefined
 		
 		return ret;
 	}
@@ -483,23 +488,53 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	public Object evalRoutine(FileContext filectx, String entrypoint, Object... args) {
 		Object ret = null;
 
-		// copy over variables onto stack
-		
-		// process each line until we get a quit
-		// TODO: This is horribly inefficient
+		// loop through each line until we find our target entrypoint, then process 
+		// subsequent lines until we find the target a quit
+		// TODO: This seems horribly inefficient
 		boolean exec = (entrypoint == null); // if no entrypoint specified, start executing immediately at the top
 		for (RoutineLineContext rlc : filectx.routineLine()) {
-			System.out.println("EP: " + rlc.entryPoint());
 			if (exec) {
-				ret = visitLine(rlc.line());
-				if (ret instanceof MCmdQ.QuitReturn) {
-					// quit command returned a value, return that and stop processing further lines
-					ret = ((MCmdQ.QuitReturn) ret).getValue();
-					break;
+
+				// some routine ep's can be a single line and have a command list, others have a nested line
+				LineContext line = rlc.line();
+				if (line == null && rlc.cmdList() != null) {
+					ret = visitCmdList(rlc.cmdList());
+				} else if (line != null) {
+					ret = visitLine(line);
 				}
+				
 			} else if (rlc.entryPoint() != null && rlc.entryPoint().ID().getText().equals(entrypoint)) {
 				// this line is the entrypoint line matching the requested entrypoint, setup args, execute subsequent lines
 				exec = true;
+				
+				// this is our target entrypoint, push the input variables onto the stack
+				EpArgsContext epargs = rlc.entryPoint().epArgs();
+				if (epargs != null) {
+					String[] nudeVars = new String[epargs.ID().size()];
+					for (int i=0; i < nudeVars.length; i++) {
+						nudeVars[i] = epargs.ID(i).getText();
+					}
+					
+					// NEW them before setting them
+					proc.push(false, nudeVars);
+					for (int i=0; i < nudeVars.length; i++) {
+						MVar v = proc.getLocal(nudeVars[i]);
+						v.set(args[i]);
+					}
+				}
+				
+				// if there is an associated command list, its likely a single line entrypoint, execute them
+				if (rlc.cmdList() != null) {
+					ret = visitCmdList(rlc.cmdList());
+				}
+			}
+			
+			// if the result is a quit, then return its return value and stop processing any further lines
+			if (ret instanceof MCmdQ.QuitReturn) {
+				ret = ((MCmdQ.QuitReturn) ret).getValue();
+				
+				// TODO: pop the stack vars as we are exiting the routine here
+				break;
 			}
 		}
 		

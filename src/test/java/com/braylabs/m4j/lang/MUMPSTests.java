@@ -254,4 +254,19 @@ public class MUMPSTests {
 		assertEquals("", $REVERSE(""));
 		assertEquals("", $REVERSE(null));
 	}
+	
+	@Test
+	public void test$TR() {
+		// lower to upper translation
+		assertEquals("FOO", $TRANSLATE("foo", "abcdefghijklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
+		
+		
+		// no 3rd param should remove those characters
+		assertEquals("ad", $TRANSLATE("abcd", "bc"));
+		
+		// uneven numbers of target and replacement values
+		assertEquals("123d", $TRANSLATE("abcd", "abc","123"));
+		assertEquals("123", $TRANSLATE("abcd", "abcd","123"));
+		assertEquals("123d", $TRANSLATE("abcd", "abc","1234"));
+	}
 }

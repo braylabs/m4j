@@ -214,17 +214,17 @@ public class MInterpreterTests {
 	public void testInvokeSystemFunctions$O() {
 		// some functions take variables and examine globals, etc
 		MVar var = proc.getLocal("FOO");
-		var.get("1").set("A");
-		var.get("2").set("B");
-		var.get("3").set("C");
+		var.get("A").set(1);
+		var.get("B").set(2);
+		var.get("C").set(3);
 		
 		// subscripted
-		interp.evalLine("W $O(FOO(2))");
-		assertEquals("3", proc.toString());
+		interp.evalLine("W $O(FOO(\"A\"))");
+		assertEquals("B", proc.toString());
 		
 		// unsubscripted
 		interp.evalLine("W $O(FOO)");
-		assertEquals("1", proc.toString());
+		assertEquals("", proc.toString());
 		
 		
 	}
@@ -234,7 +234,7 @@ public class MInterpreterTests {
 		File f = new File( M4JRuntime.class.getResource("XLFSTR.int").toURI());
 		runtime.registerRoutine(new RoutineProxy.MInterpRoutineProxy(f));
 		
-		interp.evalLine("W $$REPEAT^XLFSTR(\"A\",3)");
-		assertEquals("AAA", proc.toString());
+		interp.evalLine("W $$UP^XLFSTR(\"HeLlO WorLD!\")");
+		assertEquals("HELLO WORLD!", proc.toString());
 	}
 }

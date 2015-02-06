@@ -223,7 +223,13 @@ public interface RoutineProxy {
 			throw new IllegalArgumentException("Unable to resolve paramters for java entrypoint: " + entrypoint);
 		}
 
-		/** do necessary parameter translation/insertion prior to invoking the method, return null if we cannot do it */
+		/** do necessary parameter translation/insertion prior to invoking the method, return null if we cannot do it 
+		 * TODO: This is going to get complicated quickly
+		 * - When should an undefined or unresolved variable throw an error?
+		 * - what are valid conversions?
+		 * - look into how spring does this kind of stuff for some inspiration?
+		 * 
+		 * */
 		private Object[] resolveParams(Method m, M4JProcess proc, Object[] inParams) {
 			int paramCount = m.getParameterTypes().length;
 			List<Object> params = new ArrayList<>(Arrays.asList(inParams));
@@ -236,21 +242,43 @@ public interface RoutineProxy {
 					ret[i] = proc;
 				} else if (clazz == MVar.class && hasMore) {
 					ret[i] = params.remove(0);
-				} else if (clazz == String.class && hasMore) {
-					ret[i] = params.remove(0).toString();
-				} else if (clazz == int.class && hasMore) {
-					Object next = params.remove(0);
-					if (next instanceof MVal) {
-						ret[i] = ((MVal) next).toNumber().intValue();
-					} else if (next instanceof Integer) {
-						ret[i] = (int) next; 
+				} else if ((clazz == String.class || clazz == int.class) && hasMore) {
+					
+					// conversion from MVal or MVar to literal value
+					
+					
+					
+					
+					// if input parameter is a MVar, it must be defined
+					Object param = params.remove(0);
+					if (param instanceof MVar) {
+						MVar paramVar = (MVar) param;
+						if (!paramVar.isDefined()) throw new IllegalArgumentException("Cannot convert undefined variable to a literal value: " + paramVar.getFullName());
+						if (clazz == String.class) {
+							ret[i] = paramVar.val().toString();
+						} else {
+							ret[i] = paramVar.valInt();
+						}
+					} else if (param instanceof MVal) {
+						MVal paramVal = (MVal) param;
+						if (clazz == String.class) {
+							ret[i] = paramVal.toString();
+						} else {
+							ret[i] = paramVal.toNumber().intValue();
+						}
+					} else if (param instanceof String) {
+						ret[i] = param;
+					} else if (param instanceof Integer) {
+						ret[i] = param;
 					} else {
-						// failed
-						throw new IllegalArgumentException("Unable to convert to integer: " + next);
+						// what is this?
+						throw new IllegalArgumentException("Unable to resolve paramter, unknown type/class: " + param.getClass());
 					}
-				} else {
-					// probably not enough args or something, return null, try to match another signature
+				} else if (!hasMore) {
+					// missmatch in # of arguments, skip and try to match a different method signature later
 					return null;
+				} else {
+					throw new IllegalArgumentException("Not a valid/recognized/permitted parameter type for M4J: " + clazz);
 				}
 				i++;
 			}

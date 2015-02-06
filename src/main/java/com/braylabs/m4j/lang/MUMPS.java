@@ -75,6 +75,38 @@ public class MUMPS {
 		// TODO: Finish the delimiter stuff
 	}
 	
+	// $TRANSLATE function ----------------------------------------------------
+	
+	@M4JEntryPoint(name={"$TR","$TRANSLATE"})
+	public static final String $TRANSLATE(String string, String identifier) {
+		return $TRANSLATE(string, identifier, "");
+	}
+	
+	/** Performs character-for-character replacement within a string. */
+	@M4JEntryPoint(name={"$TR","$TRANSLATE"})
+	public static final String $TRANSLATE(String string, String identifier, String assoc) {
+		StringBuilder sb = new StringBuilder(string.toString());
+		
+		// loop through each character in the identifier string
+		for (int i=0; i < sb.length(); i++) {
+			char c = sb.charAt(i);
+			
+			// if c is not found in the target list, continue to next character
+			int idx = identifier.indexOf(c);
+			if (idx == -1) continue;
+			
+			// not enough replacement characters, remove the match
+			if (idx >= assoc.length()) {
+				sb.replace(i, i+1, "");
+				i--;
+			} else {
+				sb.replace(i, i+1, "" + assoc.charAt(idx));
+			}
+		}
+		
+		return sb.toString();
+	}
+	
 	// $INCREMENT function ----------------------------------------------------
 
 	public static final Number $I(MVar variable) {
