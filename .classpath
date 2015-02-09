@@ -4,6 +4,11 @@
 	<classpathentry kind="src" path="src/main/java"/>
 	<classpathentry kind="src" path="target/generated-sources/antlr4"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="var" path="M2_REPO/org/abego/treelayout/org.abego.treelayout.core/1.0.1/org.abego.treelayout.core-1.0.1.jar" sourcepath="M2_REPO/org/abego/treelayout/org.abego.treelayout.core/1.0.1/org.abego.treelayout.core-1.0.1-sources.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="jar:file:/Users/brian/.m2/repository/org/abego/treelayout/org.abego.treelayout.core/1.0.1/org.abego.treelayout.core-1.0.1-javadoc.jar!/"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="var" path="M2_REPO/com/h2database/h2/1.3.171/h2-1.3.171.jar" sourcepath="M2_REPO/com/h2database/h2/1.3.171/h2-1.3.171-sources.jar">
 		<attributes>
 			<attribute name="javadoc_location" value="jar:file:/Users/brian/.m2/repository/com/h2database/h2/1.3.171/h2-1.3.171-javadoc.jar!/"/>
@@ -24,9 +29,13 @@
 			<attribute name="javadoc_location" value="jar:file:/Users/brian/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.0.6/jackson-core-2.0.6-javadoc.jar!/"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="var" path="M2_REPO/org/ow2/asm/asm-all/5.0.3/asm-all-5.0.3.jar" sourcepath="M2_REPO/org/ow2/asm/asm-all/5.0.3/asm-all-5.0.3-sources.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="jar:file:/Users/brian/.m2/repository/org/ow2/asm/asm-all/5.0.3/asm-all-5.0.3-javadoc.jar!/"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="lib" path="/usr/local/Cellar/antlr/4.4/antlr-4.4-complete.jar"/>
-	<classpathentry kind="lib" path="lib/cachedb.jar"/>
+	<classpathentry kind="lib" path="lib/jds.jar"/>
 	<classpathentry kind="lib" path="lib/cacheextreme.jar"/>
-	<classpathentry kind="lib" path="lib/cachejdbc.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

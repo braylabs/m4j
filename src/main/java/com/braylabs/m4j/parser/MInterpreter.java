@@ -346,7 +346,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	@Override
 	public Object visitRef(RefContext ctx) {
 		// resolve flags and ids
-		String flags = (ctx.refFlags().FLAGS() == null) ? "" : ctx.refFlags().FLAGS().getText();
+		String flags = (ctx.refFlags() == null || ctx.refFlags().FLAGS() == null) ? "" : ctx.refFlags().FLAGS().getText();
 		List<TerminalNode> ids = ctx.ID();
 		String id1 = (ids.size() > 0) ? ids.get(0).getText() : null;
 		String id2 = (ids.size() > 1) ? ids.get(1).getText() : null;
