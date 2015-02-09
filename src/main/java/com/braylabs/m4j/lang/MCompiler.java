@@ -1,4 +1,4 @@
-package com.braylabs.m4j.compiler;
+package com.braylabs.m4j.lang;
 
 import java.io.File;
 import java.io.FileFilter;
