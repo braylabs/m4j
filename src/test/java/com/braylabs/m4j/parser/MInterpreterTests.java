@@ -25,14 +25,14 @@ public class MInterpreterTests {
 	private MInterpreter interp;
 	private M4JProcess proc;
 	
-	public static class TestMContext extends M4JProcess {
+	public static class TestM4JProcess extends M4JProcess {
 		private ByteArrayOutputStream baos;
 
-		public TestMContext() {
+		public TestM4JProcess() {
 			this(runtime);
 		}
 		
-		public TestMContext(M4JRuntime runtime) {
+		public TestM4JProcess(M4JRuntime runtime) {
 			super(runtime,0);
 			// capture output in a string instead of to System.out
 			baos = new ByteArrayOutputStream();
@@ -50,7 +50,7 @@ public class MInterpreterTests {
 
 	@Before
 	public void before() {
-		proc = new TestMContext();
+		proc = new TestM4JProcess();
 		interp = new MInterpreter(proc);
 		interp.setDebugMode(true);
 	}
@@ -231,10 +231,13 @@ public class MInterpreterTests {
 	
 	@Test
 	public void testLoadInvokeRoutine() throws IOException, URISyntaxException {
-		File f = new File( M4JRuntime.class.getResource("XLFSTR.int").toURI());
+		File f = new File("src/main/mumps/XLFSTR.int");
+		M4JRuntime runtime = new M4JRuntime();
 		runtime.registerRoutine(new RoutineProxy.MInterpRoutineProxy(f));
 		
-		interp.evalLine("W $$UP^XLFSTR(\"HeLlO WorLD!\")");
-		assertEquals("HELLO WORLD!", proc.toString());
+		M4JProcess proc = new TestM4JProcess(runtime);
+		proc.getInterpreter().evalLine("S SAY=\"hello \",NAME=\"world\" W $$UP^XLFSTR(SAY_NAME)");
+		
+		assertEquals("HELLO WORLD", proc.toString());
 	}
 }

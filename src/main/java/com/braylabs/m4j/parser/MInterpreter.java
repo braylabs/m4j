@@ -279,6 +279,8 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		for (ExprContext expr : ctx.exprList().expr()) {
 			Object obj = visit(expr);
 			
+			// TODO: handle !!
+			// TODO: Handle ?45 for indenting to position 45.
 			if (obj.equals("!")) proc.getOutputStream().println();
 			else proc.getOutputStream().print(obj);
 		}
@@ -344,7 +346,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	@Override
 	public Object visitRef(RefContext ctx) {
 		// resolve flags and ids
-		String flags = (ctx.FLAGS() == null) ? "" : ctx.FLAGS().getText();
+		String flags = (ctx.refFlags().FLAGS() == null) ? "" : ctx.refFlags().FLAGS().getText();
 		List<TerminalNode> ids = ctx.ID();
 		String id1 = (ids.size() > 0) ? ids.get(0).getText() : null;
 		String id2 = (ids.size() > 1) ? ids.get(1).getText() : null;
@@ -432,8 +434,10 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			return Integer.parseInt(ctx.NUM_LITERAL().getText());
 		} else if (ctx.ref() != null) {
 			return visitRef(ctx.ref());
+		} else if (ctx.expr() != null) {
+			return visitExpr(ctx.expr());
 		}
-		return ctx.toString();
+		throw new IllegalArgumentException("Unknown/unimplemented argument structure.");
 	}
 	
 	// Evaluate methods -------------------------------------------------------
@@ -462,12 +466,6 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	}
 	
 	public Object evalLine(String line) {
-		
-		// must pad the line with EOL, otherwise parser complains for now
-		if (!line.endsWith("\n")) {
-			line += "\n";
-		}
-		
 		// parse the line and then evaluate it
 		MUMPSParser parser = parse(line);
 		parser.removeErrorListeners();

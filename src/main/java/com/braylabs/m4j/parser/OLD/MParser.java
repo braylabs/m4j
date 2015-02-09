@@ -1,6 +1,6 @@
 package com.braylabs.m4j.parser.OLD;
 
-import static com.braylabs.m4j.lang.MUMPS.$P;
+import static com.braylabs.m4j.lang.MUMPS.$PIECE;
 import static com.braylabs.m4j.parser.MParserUtils.*;
 
 import java.util.ArrayList;
@@ -142,10 +142,10 @@ public class MParser {
 					cmd = null;
 				}
 				cmd = new CMD();
-				cmd.name = MUMPS.$P(tok,":",1);
+				cmd.name = MUMPS.$PIECE(tok,":",1);
 				
 				// if there is a post conditional, add it to the command
-				String pc = MUMPS.$P(tok,":",2);
+				String pc = MUMPS.$PIECE(tok,":",2);
 				if (pc != null && !pc.isEmpty()) {
 					cmd.postConditional = new TOKEN(TokenType.PC, pc);
 					cmd.postConditional.subtokens = parseSubTokens(cmd.postConditional);
@@ -211,7 +211,7 @@ public class MParser {
 			return TokenType.NUM_LITERAL;
 		} else if (strContains(tok, MCmd.ALL_OPERATOR_CHARS)) {
 			return TokenType.EXPR;
-		} else if (MCmd.COMMAND_SET.contains($P(tok,":",1).toUpperCase())) {
+		} else if (MCmd.COMMAND_SET.contains($PIECE(tok,":",1).toUpperCase())) {
 			return TokenType.CMD;
 		} else if (parseRef(tok) != null) {
 			return TokenType.REF;

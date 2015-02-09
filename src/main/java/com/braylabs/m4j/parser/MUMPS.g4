@@ -24,7 +24,7 @@ lines: line+;
 line 
 	: LEADING_WS? lineEnd // comment only line
 	| LEADING_WS? DOT* cmdList lineEnd // indented line
-	| LEADING_WS? cmdList COMMENT? // very last line of routine is a bit tricky, can't match EOL but could be comment, likely indented
+	| LEADING_WS? DOT* cmdList COMMENT? // very last line of routine is a bit tricky, can't match EOL but could be comment, likely indented
 ;
 
 cmdList
@@ -44,7 +44,7 @@ lineEnd: COMMENT? EOL;
 
 // entrypoint args must be refs, not literals
 entryPoint
-	: name=ID '(' epArgs ')'
+	: name=ID '(' epArgs? ')'
 	| name=ID
 ;
 
@@ -54,14 +54,19 @@ epArgs
 
 /** REFS are functions, routines, globals, locals, etc (but not commands) */
 ref 
-	: FLAGS? ID '^' ID '(' args ')' // routine ref w/ args and entry point
-	| FLAGS? ID '^' ID            // routine w/ entry point reference
-    | FLAGS? '^' ID '(' args ')' // global reference w/ args
+	: refFlags? ID '^' ID '(' args ')' // routine ref w/ args and entry point
+	| refFlags? ID '^' ID            // routine w/ entry point reference
+    | refFlags? '^' ID '(' args ')' // global reference w/ args
     | '^' ID              		 // global reference wo/ args
     | '^(' args ')'       		// naked global reference
-    | FLAGS? ID '(' args ')'     
-    | FLAGS? ID
+    | '@' refFlags? ID '@'+ // indirection
+    | '@' refFlags? ID '@' '(' args ')' // indirection
+    | '@' '(' args ')' // indirection
+    | refFlags? ID '(' args ')'     
+    | refFlags? ID
 ;
+
+refFlags: FLAGS | DOT;
 
 args
     : arg ((','|':') arg)* 
@@ -103,6 +108,7 @@ expr
 	| expr ('?' | '\'?') exprPattern // pattern match case
 	| ref
 	| literal
+	| '?' NUM_LITERAL // weird indenting expressions for W (ie: ?35)
 	| '(' expr ')'
 	| '(' ID (',' ID)* ')'
 	;
@@ -111,10 +117,7 @@ expr
 exprPattern: exprPatternItem+;
 exprPatternItem: (DOT | NUM_LITERAL) (ID | STR_LITERAL)+;
 
-
-
-// TODO: ? NUM_LITERAL not appropriate for full pattern matching operator
-literal : STR_LITERAL | NUM_LITERAL	| '!';
+literal : STR_LITERAL | NUM_LITERAL	| '!'+;
 	
 
 BIN_OP
@@ -139,7 +142,7 @@ NUM_LITERAL // TODO: leading +/- should be valid as well but treat them as unary
     ;
 
 DOT: '.' {lineStart=false;};
-FLAGS : '$$' | '$' | DOT | '@';
+FLAGS : '$$' | '$' | '@';
 INTX :   '0' | [1-9] [0-9]* ; // no leading zeros
 INT :   [0-9]+ ; // no leading zeros
 fragment EXP :   [Ee] [+\-]? INT ; // \- since - means "range" inside [...]
