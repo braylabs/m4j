@@ -3,6 +3,7 @@ package com.braylabs.m4j.parser;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
 
@@ -101,10 +102,6 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		// ensure that this command is defined/implemented
 		String name = ctx.ID().getText();
 		
-		if (!MCmd.COMMAND_IMPL_MAP.containsKey(name)) {
-			throw new IllegalArgumentException("Command is not defined: " + name);
-		}
-		
 		// if there is a PCE, evaluate it.  Skip the command execution if its false.
 		PceContext pc = ctx.getRuleContext(PceContext.class, 0);
 		if (pc != null) {
@@ -131,6 +128,14 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			case "Q":
 			case "QUIT":
 				return CMD_Q(ctx);
+			case "H":
+				// hang has vars, halt does not, let halt flow down
+				if (ctx.exprList() != null) return CMD_HANG(ctx);
+			case "HALT":
+				return CMD_HALT(ctx);
+			case "HANG":
+				return CMD_HANG(ctx);
+				
 			default:
 				throw new IllegalArgumentException("Commmand not implemented: " + name);
 		}
@@ -152,7 +157,6 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	@Override
 	public MVal visitExpr(ExprContext ctx) {
 		List<Object> postfix = infixToPostfix(ctx.children);
-		System.out.println("POSTFIX: " + postfix);
 		
 		// evaluate stack, stop when there is only 1 remaining item and return it
 		for (int i=0; i < postfix.size() && postfix.size() > 1; i++) {
@@ -275,6 +279,15 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	}
 
 	private Object CMD_W(CmdContext ctx) {
+		// if no expressions, list all the local vars
+		if (ctx.exprList() == null) {
+			Iterator<String> itr = proc.listLocals();
+			while (itr.hasNext()) {
+				proc.getOutputStream().println(itr.next());
+			}
+			return null;
+		}
+		
 		// loop through each expression, write to output stream 
 		for (ExprContext expr : ctx.exprList().expr()) {
 			Object obj = visit(expr);
@@ -338,9 +351,34 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			
 			// wrap return value in marker class
 			ret = new MCmdQ.QuitReturn(ret);
+		} else {
+			// console mode Q should just quit
 		}
 		
 		return ret;
+	}
+	
+	private Object CMD_HALT(CmdContext ctx) {
+		return MCmdQ.HALT;
+	}
+	
+	/** Sleep 1 or more times for the specified seconds */
+	private Object CMD_HANG(CmdContext ctx) {
+		// sleep x seconds
+		if (ctx.exprList() != null) {
+			for (ExprContext expr : ctx.exprList().expr()) {
+				Object val = (MVal) visit(expr);
+				if (val != null && val instanceof MVal) {
+					int sleepSecs = ((MVal) val).toNumber().intValue();
+					try {
+						Thread.sleep(sleepSecs * 1000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+			}
+		}
+		return null;
 	}
 	
 	@Override
@@ -435,7 +473,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		} else if (ctx.ref() != null) {
 			return visitRef(ctx.ref());
 		} else if (ctx.expr() != null) {
-			return visitExpr(ctx.expr());
+			return visitExpr(ctx.expr().get(0));
 		}
 		throw new IllegalArgumentException("Unknown/unimplemented argument structure.");
 	}

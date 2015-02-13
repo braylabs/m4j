@@ -225,7 +225,10 @@ public class MInterpreterTests {
 		// unsubscripted
 		interp.evalLine("W $O(FOO)");
 		assertEquals("", proc.toString());
-		
+	}
+	
+	@Test
+	public void testCMD_READ() {
 		
 	}
 	

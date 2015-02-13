@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -151,6 +152,10 @@ public class M4JRuntime {
 		public MVar getLocal(String name) {
 			if (name.startsWith("$")) return getSpecialVar(name);
 			return stack.get(name, false);
+		}
+		
+		public Iterator<String> listLocals() {
+			return stack.locals.keySet().iterator();
 		}
 		
 		/** Essentially the NEW command */

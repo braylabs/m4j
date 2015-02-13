@@ -367,6 +367,8 @@ public class MCmd extends AbstractMToken<MToken<?>> implements MLineItem<MToken<
 			}
 		}
 
+		public static final Object HALT = "HALT";
+
 		public MCmdQ(String cmdname, String cmdvalue, int offset, MLine line) {
 			super(cmdname, cmdvalue, offset, line);
 		}

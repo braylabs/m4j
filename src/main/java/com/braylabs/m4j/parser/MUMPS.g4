@@ -24,6 +24,7 @@ lines: line+;
 line 
 	: LEADING_WS? lineEnd // comment only line
 	| LEADING_WS? DOT* cmdList lineEnd // indented line
+	| LEADING_WS? DOT* COMMENT? lineEnd // indented comment line
 	| LEADING_WS? DOT* cmdList COMMENT? // very last line of routine is a bit tricky, can't match EOL but could be comment, likely indented
 ;
 
@@ -34,10 +35,21 @@ cmdList
 cmd
 	: ID pce? exprList
 	| ID pce?
+	| ID pce? cmdArgList // for commands line OPEN, USE, CLOSE, READ
+;
+
+cmdArgList
+	: cmdArg (':' cmdArg)* 
+;
+
+cmdArg
+	: expr 
+	| '(' cmdArgList ')'
+	| 
 ;
 
 pce 
-	: ':' expr
+	: ':' exprList
 ;
 
 lineEnd: COMMENT? EOL;
@@ -52,6 +64,7 @@ epArgs
 	: ID (',' ID)*
 ;
 
+// TODO: Maybe indirection @ should not be part of ref, instead a form of expression?
 /** REFS are functions, routines, globals, locals, etc (but not commands) */
 ref 
 	: refFlags? ID '^' ID '(' args ')' // routine ref w/ args and entry point
@@ -59,17 +72,21 @@ ref
     | refFlags? '^' ID '(' args ')' // global reference w/ args
     | '^' ID              		 // global reference wo/ args
     | '^(' args ')'       		// naked global reference
-    | '@' refFlags? ID '@'+ // indirection
-    | '@' refFlags? ID '@' '(' args ')' // indirection
+    | refFlags? ID '@'+ // indirection
+    | refFlags? ID '(' args? ')' '@'+ // indirection @$$CURNODE()@
+    | refFlags? ID '@' '(' args ')' // indirection
     | '@' '(' args ')' // indirection
     | refFlags? ID '(' args ')'     
     | refFlags? ID
 ;
 
-refFlags: FLAGS | DOT;
+refFlags
+	: '@'? FLAGS // regular $ or $$ with optional indirect reference
+	| '@' 
+	| DOT;
 
 args
-    : arg ((','|':') arg)* 
+    : arg (',' arg)* 
 ;
 
 arg
@@ -77,6 +94,8 @@ arg
 	| NUM_LITERAL
 	| ref
 	| expr
+	| expr ':' expr
+	| // empty place holder arg
 ;
 
 /** expressions */
@@ -124,7 +143,7 @@ BIN_OP
 	: '=' | '\'=' // equiv
 	| '#' | '*' | '**' | '/' | '\\' // arithmetic
 	| '>' | '>=' | '\'>' | '<' | '<=' | '\'<' // logical comparison 
-	| '_' | '[' | '\'['| ']' | '\']' | ']]' | '\']]' // string 
+	| '_' | '[' | '\'['| ']' | '\']]' | '\']' | ']]' // string 
 	| '&' // logical operators
 ;
 AMBIG_OP: '-' | '+';
