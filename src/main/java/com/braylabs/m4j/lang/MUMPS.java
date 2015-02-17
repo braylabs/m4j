@@ -109,15 +109,7 @@ public class MUMPS {
 	
 	// $INCREMENT function ----------------------------------------------------
 
-	public static final Number $I(MVar variable) {
-		return $INCREMENT(variable, null);
-	}
-
-	public static final Number $I(MVar variable, Object num) {
-		return $INCREMENT(variable, num);
-	}
-
-	
+	@M4JEntryPoint(name={"$I","$INCREMENT"})
 	public static final Number $INCREMENT(MVar variable) {
 		return $INCREMENT(variable, null);
 	}
@@ -126,6 +118,7 @@ public class MUMPS {
 	 * TODO: Make this an atomic increment by using a lock on the variable?
 	 * TODO: is this properly preserving type (integer, double, string, etc.) should it?
 	 */
+	@M4JEntryPoint(name={"$I","$INCREMENT"})
 	public static final Number $INCREMENT(MVar variable, Object num) {
 		Number val = (variable.isDefined()) ? MParserUtils.evalNumericValue(variable.val()) : 0;
 		Number inc = (num == null) ? 1 : MParserUtils.evalNumericValue(num);

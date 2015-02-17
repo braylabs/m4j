@@ -3,6 +3,7 @@ package com.braylabs.m4j.lang;
 import java.io.File;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -71,6 +72,10 @@ public class M4JRuntime {
 			globals.put(name, new MVar.MVStoreMVar(mvstore, name));
 		}
 		return globals.get(name);
+	}
+	
+	public Iterator<String> listGlobals() {
+		return globals.keySet().iterator();
 	}
 	
 	
@@ -155,7 +160,7 @@ public class M4JRuntime {
 		}
 		
 		public Iterator<String> listLocals() {
-			return stack.locals.keySet().iterator();
+			return (stack.locals != null) ? stack.locals.keySet().iterator() : (Iterator<String>) Collections.EMPTY_SET.iterator();
 		}
 		
 		/** Essentially the NEW command */

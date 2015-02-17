@@ -44,9 +44,20 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 
 	private M4JProcess proc;
 	private boolean debug;
+	private MUMPSParser parser = null;
 
 	public MInterpreter(M4JProcess proc) {
 		this.proc = proc;
+		
+		// setup the parser with empty string for now
+		ANTLRInputStream input = new ANTLRInputStream();
+		MUMPSLexer lexer = new MUMPSLexer(input);
+		CommonTokenStream tokens = new CommonTokenStream(lexer);
+		this.parser = new MUMPSParser(tokens);
+		
+		// setup error handler on the parser
+		this.parser.removeErrorListeners();
+		this.parser.addErrorListener(new UnderlineErrorListener());
 	}
 	
 	@Override
@@ -157,6 +168,12 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	@Override
 	public MVal visitExpr(ExprContext ctx) {
 		List<Object> postfix = infixToPostfix(ctx.children);
+		
+		// only 1 item? resolve it and return
+		if (postfix.size() == 1) {
+			Object obj = postfix.get(0);
+			return MVal.valueOf((obj instanceof ParseTree) ? visit((ParseTree) obj) : obj);
+		}
 		
 		// evaluate stack, stop when there is only 1 remaining item and return it
 		for (int i=0; i < postfix.size() && postfix.size() > 1; i++) {
@@ -503,21 +520,30 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		return new MUMPSParser(tokens);
 	}
 	
+	private static CommonTokenStream getTokenStream(String line) {
+		ANTLRInputStream input = new ANTLRInputStream(line);
+		MUMPSLexer lexer = new MUMPSLexer(input);
+		CommonTokenStream tokens = new CommonTokenStream(lexer);
+		return tokens;
+	}
+	
 	public Object evalLine(String line) {
 		// parse the line and then evaluate it
-		MUMPSParser parser = parse(line);
-		parser.removeErrorListeners();
-		parser.addErrorListener(new UnderlineErrorListener());
-		LinesContext ctx = parser.lines();
+		this.parser.reset();
+		this.parser.setInputStream(getTokenStream(line));
+		LinesContext ctx = this.parser.lines();
 		
 		// print debug info if set
 		if (this.debug) {
-			parser.addErrorListener(new DiagnosticErrorListener());
 			System.out.println("Evaluating LINE: " + line);
 			System.out.println("TREE: " + ctx.toStringTree(parser));
 		}
 		
-		// actually perform the evaluation
+		// actually perform the evaluation (unless syntax parse errors)
+		if (this.parser.getNumberOfSyntaxErrors() > 0) {
+			return null;
+		}
+		
 		return visit(ctx);
 	}
 	
@@ -583,8 +609,8 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		public void syntaxError(Recognizer<?, ?> recognizer,
 				Object offendingSymbol, int line, int charPositionInLine,
 				String msg, RecognitionException e) {
-			System.err.printf("line %s:%s %s\n", line, charPositionInLine, msg);
 			underlineError(recognizer, (Token) offendingSymbol, line, charPositionInLine);
+			System.err.printf("line %s:%s %s\n", line, charPositionInLine, msg);
 		}
 		
 		protected void underlineError(Recognizer<?,?> recognizer, Token offendingToken, int line, int charPos) {
