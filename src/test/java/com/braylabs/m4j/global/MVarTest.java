@@ -4,18 +4,19 @@ import static org.junit.Assert.*;
 
 import java.io.File;
 import java.util.Arrays;
-import java.util.Comparator;
-import java.util.TreeMap;
 
-import org.h2.mvstore.MVMap;
 import org.h2.mvstore.MVStore;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import com.braylabs.m4j.global.MVar;
-import com.braylabs.m4j.global.MMap.MVStoreMMap;
 import com.braylabs.m4j.global.MVar.MVarKey;
+import com.intersys.globals.Connection;
+import com.intersys.globals.ConnectionContext;
+import com.intersys.jdbc.CacheConnection;
+import com.intersys.xep.EventPersister;
+import com.intersys.xep.PersisterFactory;
 
 public class MVarTest {
 	
@@ -153,4 +154,5 @@ public class MVarTest {
 //		x.next()
 		System.out.println(x);
 	}
+	
 }

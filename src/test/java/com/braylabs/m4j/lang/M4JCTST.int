@@ -1,0 +1,6 @@
+M4JCTST ; Test case routine for M4J compiler.  
+ ; Represents everything the compiler currently knows how to compile
+ ;
+HELLO() W "HELLO" Q
+ ;
+SAY(X) W "HELLO ",X Q
