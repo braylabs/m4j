@@ -339,8 +339,8 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 				}
 
 				// set the value
-				Object val = visit(rhs);
-				((MVar) var).set(val);
+				MVal val = (MVal) visit(rhs);
+				((MVar) var).set(val.getOrigVal());
 			} else {
 				throw new RuntimeException();
 			}
@@ -402,6 +402,9 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	public Object visitRef(RefContext ctx) {
 		// resolve flags and ids
 		String flags = (ctx.refFlags() == null || ctx.refFlags().FLAGS() == null) ? "" : ctx.refFlags().FLAGS().getText();
+		if (ctx.getChild(0).getText().equals("^")) {
+			flags += "^";
+		}
 		List<TerminalNode> ids = ctx.ID();
 		String id1 = (ids.size() > 0) ? ids.get(0).getText() : null;
 		String id2 = (ids.size() > 1) ? ids.get(1).getText() : null;
@@ -454,9 +457,9 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		// if flags starts with a ^ its a global, otherwise its a local
 		MVar ret = null;
 		if (flags.equals("^")) {
-			ret = proc.getGlobal(flags + ctx.ID(0).getText());
+			ret = proc.getGlobal(id1);
 		} else {
-			ret = proc.getLocal(ctx.ID(0).getText());
+			ret = proc.getLocal(id1);
 		}
 		
 		// if its a subscripted global/var, resolve that as well
@@ -610,7 +613,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 				Object offendingSymbol, int line, int charPositionInLine,
 				String msg, RecognitionException e) {
 			underlineError(recognizer, (Token) offendingSymbol, line, charPositionInLine);
-			System.err.printf("line %s:%s %s\n", line, charPositionInLine, msg);
+			System.err.printf("Syntax Error at %s:%s:  %s\n", line, charPositionInLine, msg);
 		}
 		
 		protected void underlineError(Recognizer<?,?> recognizer, Token offendingToken, int line, int charPos) {
@@ -630,7 +633,6 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			if (start>=0 && stop >0) {
 				for (int i=start; i <= stop; i++) System.err.println("^");
 			}
-			System.err.println();
 		}
 	}
 }

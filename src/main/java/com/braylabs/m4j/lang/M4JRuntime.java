@@ -1,14 +1,19 @@
 package com.braylabs.m4j.lang;
 
+import java.io.Closeable;
 import java.io.File;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.h2.mvstore.MVMap;
 import org.h2.mvstore.MVStore;
 
 import com.braylabs.m4j.global.MVar;
@@ -21,7 +26,7 @@ import com.braylabs.m4j.parser.MCmd.MParseException;
 /** Shared by all MProcesses, generally one per JVM? Maybe one per namespace?
  * Acts as the librarian of global, routines, etc. 
  */
-public class M4JRuntime {
+public class M4JRuntime implements Closeable{
 	
 	// all routines by name and then all callable entry points
 	private Map<String, RoutineProxy> routines = new HashMap<>();
@@ -59,23 +64,41 @@ public class M4JRuntime {
 		registerRoutine(new JavaClassProxy(clazz));
 	}
 	
+	/** Lists all registered routines/entrypoint combinations */
+	public Iterator<String> listRoutines() {
+		return routines.keySet().iterator();
+	}
+	
 	protected MVStore getStore() {
 		if (mvstore != null) return mvstore;
         String tmpdir = System.getProperty("java.io.tmpdir");
         if (!tmpdir.endsWith(File.separator)) tmpdir += File.separator;
-        File tmpfile = new File(tmpdir, "MContext.data");
+        File tmpfile = new File(tmpdir, "M4J.globals.data");
      	return mvstore = new MVStore.Builder().fileName(tmpfile.getAbsolutePath()).cacheSize(20).open();
 	}
 	
 	public MVar getGlobal(String name) {
 		if (!globals.containsKey(name)) {
-			globals.put(name, new MVar.MVStoreMVar(mvstore, name));
+			globals.put(name, new MVar.MVStoreMVar(getStore(), name));
 		}
 		return globals.get(name);
 	}
 	
+	/** Lists all the globals, not just the ones that have been used in this session */
 	public Iterator<String> listGlobals() {
-		return globals.keySet().iterator();
+		MVMap<String, String> meta = getStore().getMetaMap();
+		Set<String> ret = new HashSet<>();
+		Iterator<String> itr = meta.keyIterator("name.");
+		while (itr.hasNext()) {
+			String key = itr.next();
+			if (key.startsWith("name.")) {
+				ret.add(key.replace("name.", "^"));
+			} else {
+				break; // quit once we get through the name. values
+			}
+		}
+		
+		return ret.iterator();
 	}
 	
 	
@@ -97,6 +120,14 @@ public class M4JRuntime {
 		t.start();
 		
 		return ret;
+	}
+	
+	@Override
+	public void close() throws IOException {
+		// ensure that the MVstore is committed/written by closing it.
+		if (mvstore != null) {
+			mvstore.close();
+		}
 	}
 
 	// subclasses -------------------------------------------------------------

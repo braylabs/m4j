@@ -29,7 +29,6 @@ public class MVarTest {
         if (!tmpdir.endsWith(File.separator)) tmpdir += File.separator;
         tmpfile = new File(tmpdir, "MVarTest.data");
         tmpfile.deleteOnExit();
-        if (tmpfile.exists()) tmpfile.delete();
      	mvstore = new MVStore.Builder().fileName(tmpfile.getAbsolutePath()).cacheSize(20).open();
 	}
 	
@@ -121,6 +120,17 @@ public class MVarTest {
 	@Test
 	public void testGlobal() {
 		validate(new MVar.MVStoreMVar(mvstore, "BEB"));
+		
+		// getting anew copy of the variable should still have all the data persisted
+		MVar x = new MVar.MVStoreMVar(mvstore, "BEB");
+		assertEquals("X", x.val("ORC"));
+		
+		// close the store and reopen it, should still have data
+		mvstore.close();
+		before();
+		x = new MVar.MVStoreMVar(mvstore, "BEB");
+		assertEquals("X", x.val("ORC"));
+		
 	}
 	
 	public void validate(MVar x) {

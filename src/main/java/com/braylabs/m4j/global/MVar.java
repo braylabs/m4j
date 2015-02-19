@@ -7,6 +7,7 @@ import java.util.TreeMap;
 import org.h2.mvstore.MVMap;
 import org.h2.mvstore.MVStore;
 
+import com.braylabs.m4j.lang.MVal;
 import com.braylabs.m4j.parser.MParserUtils;
 import com.intersys.globals.Connection;
 import com.intersys.globals.NodeReference;
@@ -113,14 +114,17 @@ public abstract class MVar {
 	
 	public static class MVStoreMVar extends MVar {
 		private MVMap<MVarKey, Serializable> data;
+		private MVStore store;
 
 		public MVStoreMVar(MVStore store, String name) {
 			super(name);
+			this.store = store;
 			this.data = store.openMap(name);
 		}
 		
 		protected MVStoreMVar(MVStoreMVar root, MVarKey path) {
 			super(root, path);
+			this.store = root.store;
 			this.data = root.data;
 		}
 		
@@ -132,6 +136,7 @@ public abstract class MVar {
 		@Override
 		public Object doSetValue(MVarKey key, Object val) {
 			this.data.put(key, (Serializable) val);
+			this.store.commit(); // should it autocommit like this?
 			return val;
 		}
 		

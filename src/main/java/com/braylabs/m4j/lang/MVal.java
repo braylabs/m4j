@@ -9,11 +9,13 @@ import com.braylabs.m4j.parser.MParserUtils;
 /** Intended to represent a M Value which can be evaluated in a variety of ways implement operators as well */
 public class MVal {
 	
-	Number numVal;
-	String strVal;
+	private Number numVal;
+	private String strVal;
+	private Object objVal;
 	
 	public MVal(Object obj) {
 		if (obj == null) obj = "";
+		objVal = obj;
 		numVal = MParserUtils.evalNumericValue(obj);
 		strVal = obj.toString();
 	}
@@ -90,6 +92,10 @@ public class MVal {
 	
 	public Number toNumber() {
 		return numVal;
+	}
+	
+	public Object getOrigVal() {
+		return objVal;
 	}
 	
 	public boolean isTruthy() {
