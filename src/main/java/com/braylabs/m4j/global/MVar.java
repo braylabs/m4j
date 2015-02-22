@@ -46,7 +46,7 @@ public abstract class MVar {
 	}
 	
 	public String getFullName() {
-		return getName() + path.toString();
+		return getName() + ((path != null) ? path.toString() : "");
 	}
 	
 	public Integer valInt() {
@@ -55,6 +55,12 @@ public abstract class MVar {
 		return MParserUtils.evalNumericValue(obj).intValue();
 	}
 	
+	public String valStr() {
+		Object obj = val();
+		if (obj == null) return null;
+		return obj.toString();
+	}
+
 	public Object val() {
 		return doGetValue(this.path);
 	}
@@ -285,16 +291,12 @@ public abstract class MVar {
 	}
 	
 	public static class CacheMVar extends MVar {
-		private Connection conn;
+		private Connection coxnn;
 		private NodeReference ref;
 
-		public CacheMVar(Connection conn, String name) {
-			super(name);
-			this.conn = conn;
-			if (!conn.isConnected()) {
-				conn.connect();
-		    }
-			this.ref = this.conn.createNodeReference();
+		public CacheMVar(NodeReference ref) {
+			super(ref.getName());
+			this.ref = ref;
 		}
 
 		@Override

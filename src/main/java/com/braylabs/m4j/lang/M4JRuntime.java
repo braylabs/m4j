@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.h2.mvstore.MVMap;
 import org.h2.mvstore.MVStore;
 
+import com.braylabs.m4j.global.GlobalStore;
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.global.MVar.TreeMVar;
 import com.braylabs.m4j.lang.RoutineProxy.JavaClassProxy;
@@ -33,7 +34,7 @@ public class M4JRuntime implements Closeable{
 	
 	// global storage for namespace
 	private Map<String, MVar> globals = new HashMap<>();
-	private MVStore mvstore;
+	private GlobalStore store;
 	
 	// running threads/processes
 	private AtomicInteger procID = new AtomicInteger();
@@ -45,15 +46,18 @@ public class M4JRuntime implements Closeable{
 		this(null);
 	}
 	
-	public M4JRuntime(MVStore store) {
-		this.mvstore = store;
+	public M4JRuntime(GlobalStore store) {
+		this.store = store;
+		// if no store is specified, use the default java one
+		if (store == null) {
+			this.store = new GlobalStore.MVGlobalStore();
+		}
 		
 		// Initialize with system functions in MUMPS
 		registerRoutine(new JavaClassProxy(MUMPS.class));
 	}
 	
 	public void registerRoutine(RoutineProxy routine) {
-		
 		routines.put(routine.getName(), routine);
 		for (String name : routine.getEntryPointNames()) {
 			routines.put(name + "^" + routine.getName(), routine);
@@ -69,36 +73,16 @@ public class M4JRuntime implements Closeable{
 		return routines.keySet().iterator();
 	}
 	
-	protected MVStore getStore() {
-		if (mvstore != null) return mvstore;
-        String tmpdir = System.getProperty("java.io.tmpdir");
-        if (!tmpdir.endsWith(File.separator)) tmpdir += File.separator;
-        File tmpfile = new File(tmpdir, "M4J.globals.data");
-     	return mvstore = new MVStore.Builder().fileName(tmpfile.getAbsolutePath()).cacheSize(20).open();
-	}
-	
 	public MVar getGlobal(String name) {
 		if (!globals.containsKey(name)) {
-			globals.put(name, new MVar.MVStoreMVar(getStore(), name));
+			globals.put(name, store.get(name));
 		}
 		return globals.get(name);
 	}
 	
 	/** Lists all the globals, not just the ones that have been used in this session */
 	public Iterator<String> listGlobals() {
-		MVMap<String, String> meta = getStore().getMetaMap();
-		Set<String> ret = new HashSet<>();
-		Iterator<String> itr = meta.keyIterator("name.");
-		while (itr.hasNext()) {
-			String key = itr.next();
-			if (key.startsWith("name.")) {
-				ret.add(key.replace("name.", "^"));
-			} else {
-				break; // quit once we get through the name. values
-			}
-		}
-		
-		return ret.iterator();
+		return store.list();
 	}
 	
 	
@@ -124,10 +108,7 @@ public class M4JRuntime implements Closeable{
 	
 	@Override
 	public void close() throws IOException {
-		// ensure that the MVstore is committed/written by closing it.
-		if (mvstore != null) {
-			mvstore.close();
-		}
+		store.close();
 	}
 
 	// subclasses -------------------------------------------------------------
@@ -141,6 +122,9 @@ public class M4JRuntime implements Closeable{
 	 * -- TODO: maybe consolidate getGLobal()+getLocal() to getVar() and let it parse it?
 	 * 
 	 * TODO: how to dump all the current vars (W, ZW)?
+	 * 
+	 * TODO: Is a stack metadata object here a better palace to store $ROUTINE special variable
+	 * and the MInterpreter.curRoutineEvalLine variable?
 	 * 
 	 * @author brian
 	 */
@@ -161,6 +145,13 @@ public class M4JRuntime implements Closeable{
 			// setup special vars
 			MVar v = new TreeMVar("$JOB", ID);
 			specialVars.put(v.getName(), v);
+			
+			MVar routine = new TreeMVar("$ROUTINE");
+			specialVars.put(routine.getName(), routine);
+			
+			MVar indent = new TreeMVar("$INDENT");
+			indent.set(0);
+			specialVars.put(indent.getName(), indent);
 			
 			// every process has its own instance of the interpreter
 			this.interp = new MInterpreter(this);

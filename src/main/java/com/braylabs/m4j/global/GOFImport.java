@@ -36,7 +36,7 @@ public class GOFImport {
 		
 		if (store != null && file != null) {
 			mvstore = new MVStore.Builder().fileName(store.getAbsolutePath()).cacheSize(20).open();
-			M4JRuntime runtime = new M4JRuntime(mvstore);
+			M4JRuntime runtime = new M4JRuntime(new GlobalStore.MVGlobalStore(mvstore));
 			M4JProcess ctx = new M4JProcess(runtime, 0);
 			loadFile(file, rowLimit, ctx);
 //			MVStoreTool.dump(store.getAbsolutePath(), new PrintWriter(System.out));
