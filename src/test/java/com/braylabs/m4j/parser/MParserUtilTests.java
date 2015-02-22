@@ -6,6 +6,7 @@ import static com.braylabs.m4j.parser.MParserUtils.parseRef;
 import static com.braylabs.m4j.parser.MParserUtils.strContains;
 import static com.braylabs.m4j.parser.MParserUtils.tokenize;
 import static com.braylabs.m4j.parser.MParserUtils.tokenizeOps;
+import static com.braylabs.m4j.parser.MParserUtils.matches;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -508,6 +509,12 @@ public class MParserUtilTests {
 		assertNull(parseRef("-1"));
 		assertNull(parseRef("1E4"));
 
+	}
+	
+	@Test
+	public void testMatch() {
+		assertFalse(matches("FOO", "1L"));
+		assertTrue(matches("4", "1L"));
 	}
 	
 

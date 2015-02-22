@@ -8,6 +8,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.Stack;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import com.braylabs.m4j.lang.MVal;
 
 public abstract class MParserUtils {
 	private static Set<String> DEFAULT_DELIMS = new HashSet<String>(Arrays.asList(" "));
@@ -476,5 +480,15 @@ public abstract class MParserUtils {
 		
 		return false;
 	}
+
+	/** does this specified string match the specified pattern? */
+	private static Pattern PAT1 = Pattern.compile("[0-9]+[ACELNPU]+");
+	public static boolean matches(String str, String pat) {
+		if (pat.equals("1L") && str.matches("[a-z]{1}")) {
+			return true; // this is a horrible hack.
+		}
+		return false;
+	}
+
 	
 }

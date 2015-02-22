@@ -102,8 +102,10 @@ public class MInterpreterTests {
 	}
 	
 	@Test
-	@Ignore
 	public void testPatternMatch() {
+		interp.evalLine("W \"FOO\"?1L");
+		assertEquals("0", proc.toString());
+		
 		interp.evalLine("W \"123-12-1234\"?3N1\"-\"2N1\"-\"4N");
 		assertEquals("1", proc.toString());
 
@@ -120,8 +122,7 @@ public class MInterpreterTests {
 		// validate check its output stream
 		assertEquals("\nHello World2\n", proc.toString());
 	}
-
-
+	
 	@Test
 	public void testCMDIF() {
 		String m = " S FOO(\"bar\")=\"hello\",FOO(\"baz\")=\"world!\" I FOO(\"bar\")=\"hello\" W !,FOO(\"bar\")_\" \"_FOO(\"baz\"),! ; should write hello world";
@@ -235,7 +236,6 @@ public class MInterpreterTests {
 	@Test
 	public void testLoadInvokeRoutine() throws IOException, URISyntaxException {
 		File f = new File("src/main/mumps/XLFSTR.int");
-		M4JRuntime runtime = new M4JRuntime();
 		runtime.registerRoutine(new RoutineProxy.MInterpRoutineProxy(f));
 		
 		M4JProcess proc = new TestM4JProcess(runtime);

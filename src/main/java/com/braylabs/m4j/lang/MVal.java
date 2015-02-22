@@ -64,6 +64,9 @@ public class MVal {
 			case CONTAINS: numval = (this.strVal.contains(val.strVal)) ? 1d : 0d; break;
 			case NOT_CONTAINS: numval = (!this.strVal.contains(val.strVal)) ? 1d : 0d; break;
 			
+			case MATCH: numval = matches(val) ? 1d : 0d; break;
+			case NOT_MATCH: numval = !matches(val) ? 1d : 0d; break;
+			
 			default:
 				throw new RuntimeException("Operator not implemented: "  + op);
 			
@@ -78,6 +81,10 @@ public class MVal {
 		} else {
 			return new MVal(numval);
 		}
+	}
+	
+	public boolean matches(MVal val) {
+		return MParserUtils.matches(this.toString(), val.toString());
 	}
 	
 	@Override
@@ -106,7 +113,7 @@ public class MVal {
 		if (obj instanceof MVal) return (MVal) obj;
 		if (obj instanceof MVar) { 
 			MVar var = (MVar) obj;
-			if (!var.isDefined()) throw new IllegalArgumentException("Variable: " + obj.toString() + " is referenced but undefined when its value is needed");
+			if (!var.isDefined()) throw new IllegalArgumentException("<UNDEFINED> " + obj.toString());
 			return new MVal(var.val());
 		}
 		return new MVal(obj);

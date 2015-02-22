@@ -2,19 +2,24 @@ package com.braylabs.m4j.lang;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.StringTokenizer;
 
 import jline.console.ConsoleReader;
 import jline.console.completer.Completer;
+import joptsimple.OptionException;
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
+import joptsimple.OptionSpec;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Token;
+import org.h2.mvstore.MVStore;
 
-import sun.util.locale.StringTokenIterator;
-
+import com.braylabs.m4j.global.GlobalStore;
 import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
 import com.braylabs.m4j.parser.MCmd;
 import com.braylabs.m4j.parser.MInterpreter;
@@ -23,21 +28,45 @@ import com.braylabs.m4j.parser.MUMPSLexer;
 public class M4JShell {
 	
 	public static void main(String[] args) throws IOException {
-		// process command line args
-		String classPath = null;
-		for (int i=0; i < args.length; i++) {
-			String arg = args[i];
-			String next = (args.length > i+1) ? args[i+1] : null;
-			if (next != null && arg.equalsIgnoreCase("-cp") || arg.equalsIgnoreCase("--classpath")) {
-				classPath = next; 
-				++i;
+		OptionParser parser = new OptionParser();
+		OptionSpec<String> optCP = parser.acceptsAll(Arrays.asList("cp","classpath"), "Routine classpath")
+				.withOptionalArg().ofType(String.class);
+		OptionSpec<String> optGlobals = parser.acceptsAll(Arrays.asList("globals"), "Globals storage: CACHE or MVSTORE")
+				.withOptionalArg().ofType(String.class);
+		OptionSpec<String> optGlobalsDir = parser.acceptsAll(Arrays.asList("globals.dir"), "Globals storage directory (MVSTORE only)")
+				.withOptionalArg().ofType(String.class);
+		OptionSpec<String> optDebug = parser.acceptsAll(Arrays.asList("d","debug"), "Show debug info").withOptionalArg().ofType(String.class);
+
+		parser.acceptsAll(Arrays.asList("h", "?", "help"), "Show Help").forHelp();
+	     
+		OptionSet options = null;
+		try {
+			options = parser.parse(args);
+//			System.out.println(options.asMap());
+		} catch (OptionException e) {
+			System.out.println(e.getMessage());
+			parser.printHelpOn(System.out);
+			return;
+		}
+		
+		// setup global storage based on supplied parameters
+		GlobalStore store = null;
+		if (options.hasArgument(optGlobals)) {
+			if (options.valueOf(optGlobals).equalsIgnoreCase("CACHE")) {
+				store = new GlobalStore.CacheGlobalStore();
+			} else if (options.hasArgument(optGlobalsDir)) {
+				MVStore mvstore = new MVStore.Builder().fileName(options.valueOf(optGlobalsDir)).cacheSize(20).open();
+				store = new GlobalStore.MVGlobalStore(mvstore);
+			} else {
+				store = new GlobalStore.MVGlobalStore();
 			}
 		}
-
+		
 		// setup shell instance
-		M4JRuntime runtime = new M4JRuntime();
+		M4JRuntime runtime = new M4JRuntime(store);
 		M4JProcess proc = new M4JProcess(runtime, 0);
 		MInterpreter interp = new MInterpreter(proc);
+		interp.setDebugMode(options.hasArgument(optDebug));
 		
 		// setup console and prompt
 		ConsoleReader reader = new ConsoleReader();
@@ -46,7 +75,7 @@ public class M4JShell {
         reader.setPrompt("\n\u001B[32mM4J\u001B[0m> ");
         
         // load any routines/classes
-        loadRoutines(classPath, runtime);
+        loadRoutines(options.valueOf(optCP), runtime);
         
         String line = null;
         while ((line = reader.readLine()) != null) {

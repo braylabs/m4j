@@ -1,12 +1,21 @@
 package com.braylabs.m4j.lang;
 
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.StringTokenizer;
+
+import org.joda.time.DateTime;
+import org.joda.time.Duration;
+import org.joda.time.Interval;
+import org.joda.time.LocalDate;
+import org.joda.time.LocalDateTime;
+import org.joda.time.PeriodType;
 
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.global.MVar.MVarKey;
@@ -16,7 +25,7 @@ import com.braylabs.m4j.parser.MParserUtils;
 
 @M4JRoutine(name="SYS")
 public class MUMPS {
-	
+	public static final DateTime EPOCH = new LocalDate(1840,12,31).toDateTimeAtStartOfDay();
 	public static final Set<String> FUNCTION_SET = Collections
 			.unmodifiableSet(new HashSet<String>(Arrays.asList(
 					"$A", "$ASCII", "$C", "$CHAR", "$EF", "$EXTRACT", "$F", "$FIND", "$P", "$PIECE", "$R", "$RANDOM", "$RE", "$REVERSE",
@@ -51,13 +60,14 @@ public class MUMPS {
 	 * Returns the MUMPS style date of "ddddd,sssss" which represents 
 	 * the number of days since December 31, 1840, where day 1 is January 1, 1841 and sssss represents 
 	 * the number of seconds since midnight of the current day 
-	 * 
-	 * TODO: implement this
-	 * 
 	 * @return
 	 */
 	public static final MVar $HOROLOG() {
-		return new MVar.TreeMVar("$HOROLOG", "63568,56134");
+		DateTime now = DateTime.now();
+		Duration days = new Duration(EPOCH, now);
+		Duration seconds = new Duration(now.withTimeAtStartOfDay(), now);
+		String ret = days.toStandardDays().getDays() + "," + seconds.toStandardSeconds().getSeconds();
+		return new MVar.TreeMVar("$HOROLOG", ret);
 	}
 
 	@M4JEntryPoint(name={"$L","$LENGTH"})
@@ -220,6 +230,30 @@ public class MUMPS {
 		return ret.getLastKey();
 	}
 	
+	@M4JEntryPoint(name={"$Q", "$QUERY"})
+	public static final Object $QUERY(MVar reference) {
+		return $QUERY(reference, 1, null);
+	}
+	@M4JEntryPoint(name={"$Q", "$QUERY"})
+	public static final Object $QUERY(MVar reference, int direction) {
+		return $QUERY(reference, direction, null);
+	}
+	
+	/** TODO: this is not complete */
+	@M4JEntryPoint(name={"$Q", "$QUERY"})
+	public static final Object $QUERY(MVar reference, int direction, MVar target) {
+		MVarKey key = null;
+		if (direction == 1) {
+			key = reference.nextKey();
+		} else if (direction == -1) {
+			key = reference.prevKey();
+		} else {
+			throw new IllegalArgumentException("Only 1 and -1 are allowed for direction value");
+		}
+		
+		MVar ret = reference.get(key);
+		return ret.getFullName();
+	}
 	
 	// $ASCII function --------------------------------------------------------
 	
@@ -256,27 +290,17 @@ public class MUMPS {
 	}
 	
 	// $EXTRACT function
-	
-	public static final String $E(String str) {
-		return $EXTRACT(str, 1, 1);
-	}
-
-	public static final String $E(String str, int start) {
-		return $EXTRACT(str, start, start);
-	}
-
-	public static final String $E(String str, int start, int end) {
-		return $EXTRACT(str, start, end);
-	}
-	
+	@M4JEntryPoint(name={"$E","$EXTRACT"})
 	public static final String $EXTRACT(String str) {
 		return $EXTRACT(str, 1, 1);
 	}
 
+	@M4JEntryPoint(name={"$E","$EXTRACT"})
 	public static final String $EXTRACT(String str, int start) {
 		return $EXTRACT(str, start, start);
 	}
 
+	@M4JEntryPoint(name={"$E","$EXTRACT"})
 	public static final String $EXTRACT(String str, int start, int end) {
 		if (str == null || start <= 0 || end < start) return "";
 		return str.substring(start-1, (end >= str.length()) ? str.length() : end);
@@ -331,6 +355,35 @@ public class MUMPS {
 			}
 		}
 		return ret;
+	}
+	
+	/** 
+	 * This is the version of $P that can be used in SET commands:
+	 * <pre>S FOO="A,B,C",$P(FOO,",",2)="Z" => A,Z,C</pre>
+	 * TODO: Implment the TO parameter as well
+	 */
+	public static final String $PIECE(String str, String delim, int from, String val) {
+		if (from < 1) return str;
+		
+		// find the location of the nth delimiter
+		StringBuffer sb = new StringBuffer(str);
+		int count=1, idx = sb.indexOf(delim);
+		while (idx > -1 && ++count < from) {
+			idx = sb.indexOf(delim, idx+1);
+		}
+		
+		// then find the index of where the token ends
+		int nextIdx = (idx == -1) ? -1 : sb.indexOf(delim, idx+1);
+		
+		// if no start delim was found then treat the whole string as the first instance
+		if (idx == -1 && from == 1) return val;
+
+		// if no start delim was found, append some
+		for (int i=count; i < from; i++) sb.append(delim);
+		
+		// replace the value with the new value, update the variable and return
+		sb.replace((idx==-1) ? sb.length() : idx+1, (nextIdx==-1) ? sb.length() : nextIdx, val);
+		return sb.toString();
 	}
 	
 	// $Random function ------------------------------------------------------- 

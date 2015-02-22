@@ -3,6 +3,7 @@ package com.braylabs.m4j.parser;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
@@ -20,6 +21,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
+import com.braylabs.m4j.lang.MUMPS;
 import com.braylabs.m4j.lang.MVal;
 import com.braylabs.m4j.lang.MVal.BinaryOp;
 import com.braylabs.m4j.lang.MVal.UnaryOp;
@@ -32,6 +34,8 @@ import com.braylabs.m4j.parser.MUMPSParser.CmdContext;
 import com.braylabs.m4j.parser.MUMPSParser.CmdListContext;
 import com.braylabs.m4j.parser.MUMPSParser.EpArgsContext;
 import com.braylabs.m4j.parser.MUMPSParser.ExprContext;
+import com.braylabs.m4j.parser.MUMPSParser.ExprListContext;
+import com.braylabs.m4j.parser.MUMPSParser.ExprPatternContext;
 import com.braylabs.m4j.parser.MUMPSParser.FileContext;
 import com.braylabs.m4j.parser.MUMPSParser.LineContext;
 import com.braylabs.m4j.parser.MUMPSParser.LinesContext;
@@ -45,7 +49,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	private M4JProcess proc;
 	private boolean debug;
 	private MUMPSParser parser = null;
-
+	
 	public MInterpreter(M4JProcess proc) {
 		this.proc = proc;
 		
@@ -66,8 +70,8 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		// count its indent length
 		int indent= (ctx.DOT() == null) ? 0 : ctx.DOT().size();
 		
-		// only execute if its indent level 0 for now
-		if (indent > 0) return null;
+		// only execute if indent level is equal to $INDENT
+		if (indent != proc.getLocal("$INDENT").valInt()) return null;
 
 		// if there are no commands skip it
 		if (ctx.cmdList() == null) return null;
@@ -81,7 +85,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		
 		Object ret = null;
 		for (CmdContext cmd : ctx.cmd()) {
-			ret = visit(cmd);
+			ret = visitCmd(cmd);
 			
 			if (ret == null) {
 				// ???
@@ -123,6 +127,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			}
 		}
 		
+		// TODO: Make this more pluggable
 		switch (name.toUpperCase()) {
 			case "W":
 			case "WRITE":
@@ -139,6 +144,12 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			case "Q":
 			case "QUIT":
 				return CMD_Q(ctx);
+			case "F":
+			case "FOR":
+				return CMD_F(ctx);
+			case "D":
+			case "DO":
+				return CMD_D(ctx);
 			case "H":
 				// hang has vars, halt does not, let halt flow down
 				if (ctx.exprList() != null) return CMD_HANG(ctx);
@@ -168,6 +179,9 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	@Override
 	public MVal visitExpr(ExprContext ctx) {
 		List<Object> postfix = infixToPostfix(ctx.children);
+		if (this.debug) {
+			System.out.println("PostFIX: " + postfix);
+		}
 		
 		// only 1 item? resolve it and return
 		if (postfix.size() == 1) {
@@ -320,32 +334,65 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	
 	private Object CMD_S(CmdContext ctx) {
 		for (ExprContext expr : ctx.exprList().expr()) {
-			
-			// LHS of set can be 1) reference to local or global, 2) paren list of multiple values, 3) $P() function
-			ParseTree lhs = expr.getChild(0);
-			ParseTree oper = expr.getChild(1); // should be equals operator
-			ParseTree rhs = expr.getChild(2);
-			
-			if (!oper.getText().equals("=")) {
-				throw new RuntimeException("Expected a =");
-			}
-			
-			if (lhs instanceof RefContext) {
-				// first get the variable ref
-				Object var = visitRef((RefContext) lhs);
-				
-				if (!(var instanceof MVar)) {
-					throw new IllegalArgumentException("LHS of set must be a VAR reference");
-				}
-
-				// set the value
-				MVal val = (MVal) visit(rhs);
-				((MVar) var).set(val.getOrigVal());
-			} else {
-				throw new RuntimeException();
-			}
+			CMD_S(expr);
 		}
 		return null;
+	}
+	
+	/**
+	 * CMD_S delegates to this, for reuse
+	 * TODO: does not support the SET $E(X,*+n)="X" syntax
+	 * TODO: does not support optional params of $P
+	 */
+	private Object CMD_S(ExprContext expr) {
+		// LHS of set can be 1) reference to local or global, 2) paren list of multiple values, 3) $P() function
+		ParseTree lhs = expr.getChild(0);
+		ParseTree oper = expr.getChild(1); // should be equals operator
+		ParseTree rhs = expr.getChild(2);
+		MVal val = (MVal) visit(rhs);
+		
+		if (!oper.getText().equals("=")) {
+			throw new RuntimeException("Expected a =");
+		}
+		
+		if (lhs instanceof RefContext) {
+			RefContext ref = (RefContext) lhs;
+		
+			// see if this is a special set LHS of $P or $E
+			if (ref.refFlags() != null && ref.refFlags().getText().equals("$") && 
+					ref.ID(0).getText().toUpperCase().startsWith("E")) {
+				// bypass function execution, just get the args
+				MVar var = (MVar) visitArg(ref.args().arg(0));
+				MVal arg1 = MVal.valueOf(visitArg(ref.args().arg(1)));
+				MVal arg2 = (ref.args().arg().size() >= 3) ? MVal.valueOf(visitArg(ref.args().arg(2))) : arg1;
+				
+				// replace the string with the new value
+				StringBuffer sb = new StringBuffer(var.valStr());
+				sb.replace(arg1.toNumber().intValue()-1, arg2.toNumber().intValue(), val.toString());
+				
+				// update the variable and return
+				var.set(sb.toString());
+				return var;
+			} else if (ref.refFlags() != null && ref.refFlags().getText().equals("$") &&
+					ref.ID(0).getText().toUpperCase().startsWith("P")) {
+				// bypass executing the function, and get the args
+				MVar var = (MVar) visitArg(ref.args().arg(0));
+				String delim = MVal.valueOf(visitArg(ref.args().arg(1))).toString();
+				Number from = (ref.args().arg().size() >= 3) ? MVal.valueOf(visitArg(ref.args().arg(2))).toNumber() : 1;
+
+				// do the string replacement, update the value and return
+				var.set(MUMPS.$PIECE(var.valStr(), delim, from.intValue(), val.toString()));
+				return var;
+			}
+			
+			// first get the variable reference target
+			Object var = visitRef((RefContext) lhs);
+			if (var instanceof MVar) {
+				((MVar) var).set(val.getOrigVal());
+				return var;
+			}
+		}
+		throw new MUMPSInterpretError(lhs, "Unknown target for SET command");
 	}
 	
 	private Object CMD_N(CmdContext ctx) {
@@ -398,6 +445,94 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		return null;
 	}
 	
+	private Object CMD_F(CmdContext ctx) {
+		
+		// F i=1:1:10 style expression
+		ExprListContext exprList = ctx.exprList();
+		int size = exprList.children.size();
+		if (size != 5) throw new IllegalArgumentException("FOR command expected 5 tokens in command list");
+		if (!exprList.getChild(1).getText().equals(":") || !exprList.getChild(3).getText().equals(":")) 
+			throw new IllegalArgumentException("FOR Command didn't have the :'s as expected"); 
+		
+		// execute the first expression as an assignment operator, get the loop variable reference
+		MVar loopVar = (MVar) CMD_S(exprList.expr(0));
+		MVal inc = (MVal) visit(exprList.getChild(2));
+		MVal limit = (MVal) visit(exprList.getChild(4));
+
+		// get the parent line and determine the location of this for command
+		int cmdIdx = -1;
+		List<CmdContext> cmds = ((CmdListContext) ctx.getParent()).cmd();
+		for (int i=0; i < cmds.size(); i++) {
+			if (cmds.get(i) == ctx) {
+				cmdIdx = i; break;
+			}
+		}
+		if (cmdIdx < 0) throw new IllegalArgumentException("Unable to determine where the FOR command is in the list");
+
+		for(;;) {
+			Object ret = null;
+			// execute subsequent commands on line
+			for (int i=cmdIdx+1; i < cmds.size(); i++) {
+				ret = visitCmd(cmds.get(i));
+				
+				if (ret == null) {
+					// ???
+				} else if (ret instanceof MCmdQ.QuitReturn) {
+					// quit within loop indicate terminate loop
+					break;
+				} else if (ret == MCmdI.FALSE) {
+					// returned false, stop processing this line, but continue loop
+					break;
+				}
+			}
+			
+			if (ret instanceof MCmdQ.QuitReturn) {
+				break;
+			}
+
+			// do the increment
+			MUMPS.$INCREMENT(loopVar, inc);
+			
+			// if the increment is equal to the limit, break
+			if (MVal.valueOf(loopVar).apply(BinaryOp.GTE, limit).isTruthy()) {
+				break;
+			}
+		}
+
+		// loop has been completely executed, stop processing further commands on line (like IF statement)
+		return MCmdI.FALSE;
+	}
+	
+	/** This is only the argument-less, legacy version of DO currently */
+	private Object CMD_D(CmdContext ctx) {
+		FileContext file = (FileContext) ctx.getParent().getParent().getParent().getParent();
+		int curLine = ctx.getStart().getLine();
+		
+		// use a special variable for now to track desired execution indent level
+		int curIndent = MUMPS.$INCREMENT(proc.getLocal("$INDENT")).intValue();
+		
+		for (RoutineLineContext line : file.routineLine()) {
+			// skip ahead to the next line after this DO command
+			if (line.getStart().getLine() <= curLine) continue;
+			
+			// stop when the indent level is less than desired
+			if (line.line() == null || line.line().DOT().size() < curIndent) break;
+			
+			// execute the line
+			Object ret = visitLine(line.line());
+//			System.out.println("EVAL INDENT LINE: " + line.line().toStringTree(parser));
+
+			if (ret instanceof MCmdQ.QuitReturn) {
+				break;
+			}
+		}
+		
+		// decrement the indent level
+		MUMPS.$INCREMENT(proc.getLocal("$INDENT"),-1);
+		
+		return null;
+	}
+	
 	@Override
 	public Object visitRef(RefContext ctx) {
 		// resolve flags and ids
@@ -416,7 +551,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 				// can't find it as a system func, try as a special var
 				MVar ret = proc.getLocal("$"+ id1);
 				if (ret == null) {
-					throw new IllegalArgumentException("Unable to resolve: $" + id1 + " as system function or special variable");
+					throw new MUMPSInterpretError(ctx, "Unable to resolve: $" + id1 + " as system function or special variable");
 				}
 				return ret;
 			}
@@ -439,18 +574,34 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			// $$ indicates invoke a routine (w or w/o an entrypoint indicator)
 			String ep = (id1 != null && id2 != null) ? id1 : null;
 			String routine = (id1 != null && id2 != null) ? id2 : id1;
+			MVar curRoutine = proc.getLocal("$ROUTINE");
 			
 			RoutineProxy proxy = proc.getRoutine(routine);
+			if (proxy == null && curRoutine != null) {
+				// also try looking it up as a entry point in the current routine
+				proxy = proc.getRoutine(curRoutine.valStr());
+				
+				// if something was found, then routine is really the name of the entry point
+				if (proxy != null) ep = routine;
+			}
+			
 			if (proxy == null) {
 				throw new IllegalArgumentException("Routine is undefined: " + routine);
 			}
 			
-			// invoke routine, return result
+			// track currently executing routine as special var for now
+			// then invoke routine, return result
+			MVar rvar = proc.getLocal("$ROUTINE");
+			String oldVal = rvar.valStr();
 			try {
 				List<MVal> args = resolveArgsToMVals(ctx.args());
+				rvar.set(proxy.getName());
 				return proxy.call(ep, proc, args.toArray(new Object[] {}));
 			} catch (Exception e) {
-				throw new IllegalArgumentException("Error invoking ep/routine: " + ep +"/" + routine, e);
+				throw new IllegalArgumentException("Error invoking: " + ep + "^" + routine, e);
+			} finally {
+				// restore old value
+				if (oldVal != null) rvar.set(oldVal);
 			}
 		}
 		
@@ -465,7 +616,8 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		// if its a subscripted global/var, resolve that as well
 		if (ctx.args() != null) {
 			for (ArgContext arg : ctx.args().arg()) {
-				ret = ret.get((Comparable) visitArg(arg));
+				MVal obj = MVal.valueOf(visitArg(arg));
+				ret = ret.get(obj.toString());
 			}
 		}
 		
@@ -480,6 +632,13 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			ret.add(MVal.valueOf(visitArg(arg)));
 		}
 		return ret;
+	}
+	
+	@Override
+	public Object visitExprPattern(ExprPatternContext ctx) {
+		// for now, just returning whole pattern as a string and re-interpreting
+		// the pattern as part of the operator, not sure if thats appropriate/optimal...
+		return ctx.getText();
 	}
 	
 	@Override
@@ -547,7 +706,17 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			return null;
 		}
 		
-		return visit(ctx);
+		try {
+			return visit(ctx);
+		} catch (MUMPSInterpretError err) {
+			handleError(err);
+		}
+		return MFlowControl.ERROR;
+	}
+	
+	public void handleError(MUMPSInterpretError err) {
+		// TODO: Implement this
+		throw err;
 	}
 	
 	public Object evalRoutine(FileContext filectx, String entrypoint, Object... args) {
@@ -606,6 +775,12 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		return ret;
 	}
 	
+	public static class MFlowControl {
+		public static MFlowControl QUIT=new MFlowControl();
+		public static MFlowControl ERROR=new MFlowControl();
+
+	}
+	
 	public static class UnderlineErrorListener extends BaseErrorListener {
 		
 		@Override
@@ -633,6 +808,23 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			if (start>=0 && stop >0) {
 				for (int i=start; i <= stop; i++) System.err.println("^");
 			}
+		}
+	}
+	
+	/**
+	 * TODO: how to fetch the original source file to display the error in its context?
+	 * @author brian
+	 */
+	public static class MUMPSInterpretError extends RuntimeException {
+		private ParseTree ctx;
+
+		public MUMPSInterpretError(ParseTree ctx, String msg) {
+			super(msg);
+			this.ctx = ctx;
+		}
+		
+		public ParseTree getContext() {
+			return ctx;
 		}
 	}
 }

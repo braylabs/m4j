@@ -168,21 +168,21 @@ public class MUMPSTests {
 	public void test$E() {
 		
 		// single character returns
-		assertEquals("f", $E(str));
-		assertEquals("f", $E(str, 1));
-		assertEquals("o", $E(str, 2));
-		assertEquals("o", $E(str, 3));
+		assertEquals("f", $EXTRACT(str));
+		assertEquals("f", $EXTRACT(str, 1));
+		assertEquals("o", $EXTRACT(str, 2));
+		assertEquals("o", $EXTRACT(str, 3));
 		
 		// multi-character returns
-		assertEquals("foo", $E(str, 1, 3));
-		assertEquals("foo.bar.baz", $E(str, 1, 300));
+		assertEquals("foo", $EXTRACT(str, 1, 3));
+		assertEquals("foo.bar.baz", $EXTRACT(str, 1, 300));
 		
 		
-		// empty return senarios
-		assertEquals("", $E(str, -1));
-		assertEquals("", $E(str, -10));
-		assertEquals("", $E(str, 5, 3));
-		assertEquals("", $E(null));
+		// empty return scenarios
+		assertEquals("", $EXTRACT(str, -1));
+		assertEquals("", $EXTRACT(str, -10));
+		assertEquals("", $EXTRACT(str, 5, 3));
+		assertEquals("", $EXTRACT(null));
 	}
 	
 	@Test
@@ -237,6 +237,16 @@ public class MUMPSTests {
 		
 		// other cases
 		assertEquals(str, $PIECE(str, "^", 1)); // ^ is not a valid delmiter, return full string
+	}
+	
+	@Test
+	public void testSET$PIECE() {
+		assertEquals("A,Z,C", $PIECE("A,B,C", ",", 2, "Z"));
+		assertEquals("A,B,C Z", $PIECE("A,B,C", " ", 2, "Z"));
+		assertEquals("Z", $PIECE("A,B,C", " ", 1, "Z"));
+		assertEquals("A,B,C", $PIECE("A,B,C", " ", 0, "Z"));
+		assertEquals("A,B,C,Z", $PIECE("A,B,C", ",", 4, "Z"));
+		assertEquals("A,B,C,,Z", $PIECE("A,B,C", ",", 5, "Z"));
 	}
 	
 	@Test

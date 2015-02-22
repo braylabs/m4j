@@ -12,6 +12,7 @@ routineHeaderLine
 	: ID '^INT^1^' NUM_LITERAL ',' NUM_LITERAL '^0' EOL
 ;
 
+// TODO: Probably would be easier if we collapsed routineLine as alternate styles of line
 routineLine
 	: entryPoint cmdList lineEnd // single-line entry point w/ commands
 	| entryPoint lineEnd // entry point-only line
@@ -101,6 +102,7 @@ arg
 /** expressions */
 
 
+// TODO: :'s list should probably be commandParams or something instead of an exprList
 exprList
 	: expr ((',' | '!' | ':') expr)* // IF uses !'s, most others use ,'s, FOR uses :'s
 ;
