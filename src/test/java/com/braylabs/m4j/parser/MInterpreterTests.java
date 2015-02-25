@@ -6,17 +6,15 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.lang.M4JRuntime;
 import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
-import com.braylabs.m4j.lang.MVal.UnaryOp;
+import com.braylabs.m4j.lang.RoutineProxy.JavaClassProxy.M4JEntryPoint;
+import com.braylabs.m4j.lang.RoutineProxy.JavaClassProxy.M4JRoutine;
 import com.braylabs.m4j.lang.RoutineProxy;
 
 public class MInterpreterTests {
@@ -228,13 +226,27 @@ public class MInterpreterTests {
 		assertEquals("", proc.toString());
 	}
 	
-	@Test
-	public void testCMD_READ() {
+	@M4JRoutine(name="HELLO")
+	public static class MyFirstM4JRoutine {
 		
+		@M4JEntryPoint(name="SAY")
+		public static String hello(String val) {
+			return "Hello: " + val;
+		}
 	}
 	
 	@Test
-	public void testLoadInvokeRoutine() throws IOException, URISyntaxException {
+	public void testJavaRoutineInvoke() throws IOException {
+		runtime.registerRoutine(MyFirstM4JRoutine.class);
+		File f = new File("src/main/mumps/XLFSTR.int");
+		runtime.registerRoutine(new RoutineProxy.MInterpRoutineProxy(f));
+
+		interp.evalLine("W !,$$SAY^HELLO($$UP^XLFSTR(\"Brian\")),!");
+		assertEquals("\nHello: BRIAN\n", proc.toString());
+	}
+	
+	@Test
+	public void testLoadInvokeRoutine() throws IOException {
 		File f = new File("src/main/mumps/XLFSTR.int");
 		runtime.registerRoutine(new RoutineProxy.MInterpRoutineProxy(f));
 		

@@ -220,7 +220,7 @@ public class MCompiler extends MUMPSBaseVisitor<Object> {
 		} else if (ctx.literal() != null) {
 			curMethod.visitLdcInsn(ctx.literal().getText());
 		} else if (ctx.ref() != null) {
-			visitRef(ctx.ref());
+			visitRef(ctx.ref(0));
 		} else{
 			curMethod.visitLdcInsn("<EXPR?>");
 		}

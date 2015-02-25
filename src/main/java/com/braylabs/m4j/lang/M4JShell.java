@@ -16,20 +16,18 @@ import joptsimple.OptionSpec;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
-import org.antlr.v4.runtime.misc.Interval;
 import org.h2.mvstore.MVStore;
 
 import com.braylabs.m4j.global.GlobalStore;
 import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
 import com.braylabs.m4j.parser.MInterpreter;
-import com.braylabs.m4j.parser.MInterpreter.MUMPSInterpretError;
 import com.braylabs.m4j.parser.MUMPSLexer;
 
 public class M4JShell {
 	
 	public static void main(String[] args) throws IOException {
+		// declare all the arguments
 		OptionParser parser = new OptionParser();
 		OptionSpec<String> optCP = parser.acceptsAll(Arrays.asList("cp","classpath"), "Routine classpath")
 				.withOptionalArg().ofType(String.class);
@@ -38,15 +36,18 @@ public class M4JShell {
 		OptionSpec<String> optGlobalsDir = parser.acceptsAll(Arrays.asList("globals.dir"), "Globals storage directory (MVSTORE only)")
 				.withOptionalArg().ofType(String.class);
 		OptionSpec<String> optDebug = parser.acceptsAll(Arrays.asList("d","debug"), "Show debug info").withOptionalArg().ofType(String.class);
-
-		parser.acceptsAll(Arrays.asList("h", "?", "help"), "Show Help").forHelp();
+		OptionSpec<Void> optHelp = parser.acceptsAll(Arrays.asList("h", "?", "help"), "Show Help").forHelp();
 	     
+		// parse the arguments
 		OptionSet options = null;
 		try {
 			options = parser.parse(args);
-//			System.out.println(options.asMap());
+			if (options.hasArgument(optHelp)) {
+				parser.printHelpOn(System.out);
+				return;
+			}
 		} catch (OptionException e) {
-			System.out.println(e.getMessage());
+			e.printStackTrace();
 			parser.printHelpOn(System.out);
 			return;
 		}
