@@ -302,11 +302,11 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			// each expression should return boolean
 			MVal ret = (MVal) visit(expr);
 			if (ret != null && !ret.isTruthy()) {
-				return MCmdI.FALSE;
+				return MFlowControl.FALSE;
 			}
 		}
 		
-		return MCmdI.TRUE;
+		return MFlowControl.TRUE;
 	}
 
 	private Object CMD_W(CmdContext ctx) {
@@ -414,7 +414,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			ret = visit(ctx.exprList().expr(0));
 			
 			// wrap return value in marker class
-			ret = new MCmdQ.QuitReturn(ret);
+			ret = new QuitReturn(ret);
 		} else {
 			// console mode Q should just quit
 		}
@@ -423,7 +423,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	}
 	
 	private Object CMD_HALT(CmdContext ctx) {
-		return MCmdQ.HALT;
+		return MFlowControl.HALT;
 	}
 	
 	/** Sleep 1 or more times for the specified seconds */
@@ -477,16 +477,16 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 				
 				if (ret == null) {
 					// ???
-				} else if (ret instanceof MCmdQ.QuitReturn) {
+				} else if (ret instanceof QuitReturn) {
 					// quit within loop indicate terminate loop
 					break;
-				} else if (ret == MCmdI.FALSE) {
+				} else if (ret == MFlowControl.FALSE) {
 					// returned false, stop processing this line, but continue loop
 					break;
 				}
 			}
 			
-			if (ret instanceof MCmdQ.QuitReturn) {
+			if (ret instanceof QuitReturn) {
 				break;
 			}
 
@@ -764,8 +764,8 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			}
 			
 			// if the result is a quit, then return its return value and stop processing any further lines
-			if (ret instanceof MCmdQ.QuitReturn) {
-				ret = ((MCmdQ.QuitReturn) ret).getValue();
+			if (ret instanceof QuitReturn) {
+				ret = ((QuitReturn) ret).getValue();
 				
 				// TODO: pop the stack vars as we are exiting the routine here
 				break;

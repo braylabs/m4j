@@ -83,12 +83,12 @@ public class M4JShell {
         	if (line.equals("")) continue; // do nothing
     		try {
     			Object ret = interp.evalLine(line);
-    			if (ret == MCmd.MCmdQ.HALT) {
+    			if (ret == MInterpreter.MFlowControl.HALT) {
     				break;
     			}
     			
     		} catch (Exception ex) {
-    			System.err.println("Unable to interpret line: " + line);
+    			System.err.println("Error interpreting line: " + line);
     			ex.printStackTrace();
     		}
         }

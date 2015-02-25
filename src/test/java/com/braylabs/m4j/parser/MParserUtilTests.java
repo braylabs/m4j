@@ -98,126 +98,6 @@ public class MParserUtilTests {
 	}
 	
 	@Test
-	public void testTokenizerOps() {
-		List<String> toks;
-		
-		// simple test
-		toks = tokenizeOps("a=1");
-		assertEquals(3, toks.size());
-		assertEquals("a", toks.get(0));
-		assertEquals("=", toks.get(1));
-		assertEquals("1", toks.get(2));
-		
-		// test when delims(s) are at the end of the string
-		toks = tokenizeOps("a=1=");
-		assertEquals(4, toks.size());
-		assertEquals("a", toks.get(0));
-		assertEquals("=", toks.get(1));
-		assertEquals("1", toks.get(2));
-		assertEquals("=", toks.get(3));
-		
-		// multiple charater operators should be one token
-		toks = tokenizeOps("5<=9>=5");
-		assertEquals(5, toks.size());
-		assertEquals("5", toks.get(0));
-		assertEquals("<=", toks.get(1));
-		assertEquals("9", toks.get(2));
-		assertEquals(">=", toks.get(3));
-		assertEquals("5", toks.get(4));
-		
-		// if a multiple character operator is not an operator, its multiple operators
-		toks = tokenizeOps("5==6");
-		assertEquals(4, toks.size());
-		assertEquals("5", toks.get(0));
-		assertEquals("=", toks.get(1));
-		assertEquals("=", toks.get(2));
-		assertEquals("6", toks.get(3));
-		
-		// test ignore delims inside quotes
-		toks = tokenizeOps("\"a==b\"'=\"b==c\"");
-		assertEquals(3, toks.size());
-		assertEquals("\"a==b\"", toks.get(0));
-		assertEquals("'=", toks.get(1));
-		assertEquals("\"b==c\"", toks.get(2));
-		
-		// test ignore delims inside parens
-		toks = tokenizeOps("truthy(3>4)=truthy(4<3)");
-		assertEquals(3, toks.size());
-		assertEquals("truthy(3>4)", toks.get(0));
-		assertEquals("=", toks.get(1));
-		assertEquals("truthy(4<3)", toks.get(2));
-		
-		// W 1+2*3 => 9
-		toks = tokenizeOps("1+2*3");
-		assertEquals(5, toks.size());
-		assertEquals("1", toks.get(0));
-		assertEquals("+", toks.get(1));
-		assertEquals("2", toks.get(2));
-		assertEquals("*", toks.get(3));
-		assertEquals("3", toks.get(4));
-
-		// W 1+(2*3) => 7
-		toks = tokenizeOps("1+(2*3)");
-		assertEquals(3, toks.size());
-		assertEquals("1", toks.get(0));
-		assertEquals("+", toks.get(1));
-		assertEquals("(2*3)", toks.get(2));
-	}
-	
-	@Test
-	public void testTokenizerInfixToPostfix() {
-		List<String> toks;
-		toks = infixToPostFix("1+2*3");
-		
-		// W 1+2*3 => 9
-		assertEquals(5, toks.size());
-		assertEquals("1", toks.get(0));
-		assertEquals("2", toks.get(1));
-		assertEquals("+", toks.get(2));
-		assertEquals("3", toks.get(3));
-		assertEquals("*", toks.get(4));
-		
-		// W 1+(2*3) => 7
-		toks = infixToPostFix("1+(2*3)");
-		assertEquals(5, toks.size());
-		assertEquals("1", toks.get(0));
-		assertEquals("2", toks.get(1));
-		assertEquals("3", toks.get(2));
-		assertEquals("*", toks.get(3));
-		assertEquals("+", toks.get(4));
-		
-		// test negation operator
-		toks = infixToPostFix("'1");
-		assertEquals(2, toks.size());
-		assertEquals("1", toks.get(0));
-		assertEquals("'", toks.get(1));
-		
-		// test ignore delims inside parens
-		toks = infixToPostFix("foo=get(a,b,c)");
-		assertEquals(3, toks.size());
-		assertEquals("foo", toks.get(0));
-		assertEquals("get(a,b,c)", toks.get(1));
-		assertEquals("=", toks.get(2));
-
-		
-		// test ignore delims inside parens
-		toks = infixToPostFix("foo=truthyfxn(4<3)");
-		assertEquals(3, toks.size());
-		assertEquals("foo", toks.get(0));
-		assertEquals("truthyfxn(4<3)", toks.get(1));
-		assertEquals("=", toks.get(2));
-		
-		// I=I+1 needs operator precedence (only for the ='s)
-		toks = infixToPostFix("I=I+1");
-		assertEquals(5, toks.size());
-		assertEquals("I", toks.get(0));
-		assertEquals("I", toks.get(1));
-		assertEquals("1", toks.get(2));
-		assertEquals("+", toks.get(3));
-		assertEquals("=", toks.get(4));
-	}
-	
-	@Test
 	public void testTokenizerQuotes() {
 		List<String> toks = tokenize(tokstr, delims1, true, false, false, true, false);
 		assertEquals(5, toks.size());
@@ -371,8 +251,8 @@ public class MParserUtilTests {
 		assertFalse(strContains(""));
 		
 		// real world: check for operators in the expression (outside parens)
-		assertTrue(strContains("1+2", MCmd.ALL_OPERATOR_CHARS));
-		assertFalse(strContains("FOO(1+2)", MCmd.ALL_OPERATOR_CHARS));
+		assertTrue(strContains("1+2", '+', '-'));
+		assertFalse(strContains("FOO(1+2)", '+', '-'));
 	}
 	
 	@Test

@@ -4,14 +4,9 @@ package com.braylabs.m4j.parser;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.Stack;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import com.braylabs.m4j.lang.MVal;
 
 public abstract class MParserUtils {
 	private static Set<String> DEFAULT_DELIMS = new HashSet<String>(Arrays.asList(" "));
@@ -29,11 +24,6 @@ public abstract class MParserUtils {
 	public static final List<String> tokenize(CharSequence line, char delim) {
 		return tokenize(line, new HashSet<String>(Arrays.asList(String.valueOf(delim))), true, true, false, true, false);
 	}
-	
-	public static final List<String> tokenizeOps(CharSequence line) {
-		return tokenize(line, MCmd.ALL_OPERATORS, true, true, true, true, true);
-	}
-
 
 	/**
 	 * M Line tokenizer.  Splits a line into tokens based on specified delimiters.
@@ -117,57 +107,6 @@ public abstract class MParserUtils {
 		// done parsing, if the buffer is not empty, add it to the returned results
 		String tok = (buff.length() == 0) ? null : buff.toString();
 		if (tok != null || !skipEmpty) ret.add(tok);
-		return ret;
-	}
-	
-	public static final List<String> infixToPostFix(String expr) {
-		Stack<String> stack = new Stack<String>();
-		List<String> ret = new ArrayList<String>();
-		List<String> toks = MParserUtils.tokenizeOps(expr);
-		for (int i=0; i < toks.size(); i++) {
-			String tok = toks.get(i);
-			
-			// if its a nested expression, parse it
-			if (tok.startsWith("(") && tok.endsWith(")")) {
-				toks.remove(i);
-				toks.add(i, ")");
-				toks.addAll(i, tokenizeOps(tok.substring(1,tok.length()-1)));
-				toks.add(i, "(");
-				i--;
-				continue;
-			}
-			
-			// If tok is an operator, 
-			if (MCmd.ALL_OPERATORS.contains(tok)) {
-				// while there is an operator token o(2) at the top of the stack
-				// and tok is left-associative and its precedence is less than or equal to that of o(2)
-				while (!stack.isEmpty() && !stack.peek().equals("(") && (getOpPrecedence(tok) <= getOpPrecedence(stack.peek()))) {
-					ret.add(stack.pop());
-				}
-				stack.push(tok);
-			} else if (tok.equals("(")) {
-				stack.push(tok);
-			} else if (tok.equals(")")) {
-				while (!stack.isEmpty() && !stack.peek().equals("(")) {
-					ret.add(stack.pop());
-				}
-				stack.pop();
-			} else {
-				ret.add(tok);
-			}
-		}
-		while (!stack.isEmpty()) {
-			ret.add(stack.pop());
-		}
-		
-		return ret;
-	}
-	
-	private static final int getOpPrecedence(String op) {
-		int ret = 1;
-		if (op.equals("=")) {
-			ret = 0;
-		}
 		return ret;
 	}
 	
@@ -394,46 +333,6 @@ public abstract class MParserUtils {
 		return ret;
 	}
 	
-	/**
-	 * @return Returns a formatted string of the deep structure of an element, usefull for debugging.
-	 */
-	public static final String displayStructure(AbstractMToken<?> tok, int maxlevel) {
-		StringBuilder sb = new StringBuilder();
-		doDisplayStructure(tok, 0, maxlevel, sb);
-		return sb.toString();
-	}
-	
-	private static final void doDisplayStructure(AbstractMToken<?> tok, int level, int maxlevel, StringBuilder sb) {
-		if (tok == null || level > maxlevel) return;
-		sb.append(tok.toString());
-		Iterator<?> itr = tok.iterator();
-		while (itr.hasNext() && level < maxlevel) {
-			AbstractMToken<?> t = (AbstractMToken<?>) itr.next();
-			sb.append("\n");
-			for (int i=0; i <= level; i++) sb.append("\t");
-			doDisplayStructure(t, level+1, maxlevel, sb);
-		}
-	}
-
-	public static final String displayStructureAlt(MLine line, int maxlevel) {
-		StringBuilder sb = new StringBuilder();
-		doDisplayStructureAlt(line, line.getOffset(), 0, maxlevel, 0, sb);
-		return sb.toString();
-	}
-
-	
-	private static final void doDisplayStructureAlt(AbstractMToken<?> tok, int curline, int level, int maxlevel, int sumoffset, StringBuilder sb) {
-		if (tok == null || level > maxlevel) return;
-		String header = fixedWidthStr(curline+"", 3) + ":" + fixedWidthStr(tok.getClass().getSimpleName(), 12) + ":";
-		sb.append(header + fixedWidthStr(null, sumoffset+tok.getOffset()) + tok.getValue());
-		Iterator<?> itr = tok.iterator();
-		while (itr.hasNext() && level < maxlevel) {
-			AbstractMToken<?> t = (AbstractMToken<?>) itr.next();
-			sb.append("\n");
-			doDisplayStructureAlt(t, curline, level+1, maxlevel, sumoffset+tok.getOffset(), sb);
-		}
-	}
-
 	public static final String fixedWidthStr(String in, int width) {
 		char[] chars = new char[width];
 		for (int i=0; i < width; i++) {

@@ -1,28 +1,20 @@
 package com.braylabs.m4j.lang;
 
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import org.h2.mvstore.MVMap;
-import org.h2.mvstore.MVStore;
 
 import com.braylabs.m4j.global.GlobalStore;
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.global.MVar.TreeMVar;
 import com.braylabs.m4j.lang.RoutineProxy.JavaClassProxy;
 import com.braylabs.m4j.parser.MInterpreter;
-import com.braylabs.m4j.parser.MLine;
-import com.braylabs.m4j.parser.MCmd.MParseException;
 
 /** Shared by all MProcesses, generally one per JVM? Maybe one per namespace?
  * Acts as the librarian of global, routines, etc. 
@@ -246,15 +238,6 @@ public class M4JRuntime implements Closeable{
 				x = x.getParent();
 			}
 			return sb.toString();
-		}
-		
-		/**
-		 * Convenience method for evaluating a single M line
-		 * @throws MParseException 
-		 */
-		public Object eval(String mline) throws MParseException {
-			MLine line = new MLine(mline);
-			return line.eval(this, null);
 		}
 		
 		/**

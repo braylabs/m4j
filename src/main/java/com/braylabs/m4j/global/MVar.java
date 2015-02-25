@@ -291,7 +291,6 @@ public abstract class MVar {
 	}
 	
 	public static class CacheMVar extends MVar {
-		private Connection coxnn;
 		private NodeReference ref;
 
 		public CacheMVar(NodeReference ref) {
