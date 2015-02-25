@@ -19,9 +19,7 @@ public class ASTParseTests {
 	
 	@Test
 	public void testPatternExpr() {
-		MUMPSParser ast = MInterpreter.parse("W \"FOO\"?1L");
-		LinesContext lines = ast.lines();
-		LineContext line = lines.line(0);
+		LineContext line = parseLine("W \"FOO\"?1L");
 		CmdListContext cmdlist = line.cmdList();
 		assertEquals(1, cmdlist.cmd().size());
 		CmdContext cmd = cmdlist.cmd(0);
@@ -36,6 +34,28 @@ public class ASTParseTests {
 		assertEquals("?", expr.getChild(1).getText());
 		assertEquals(ExprPatternContext.class, expr.getChild(2).getClass());
 		
+	}
+	
+	@Test
+	public void testExpr() {
+		
+		// having problems with this expression: S %=%_$E(X,%1)
+		// it was breaking it up into %=% then $E(...)
+		LineContext line = parseLine("S %=%_$E(X,%1)");
+		CmdListContext cmdList = line.cmdList();
+		assertEquals(1, cmdList.cmd().size());
+		CmdContext cmd = cmdList.cmd(0);
+		assertEquals("S", cmd.ID().getText());
+		
+		
+		// should only be one expression, not two
+		assertEquals(1, cmd.exprList().expr().size());
+	}
+	
+	public static LineContext parseLine(String line) {
+		MUMPSParser ast = MInterpreter.parse(line);
+		LinesContext lines = ast.lines();
+		return lines.line(0);
 	}
 
 }

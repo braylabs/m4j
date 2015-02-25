@@ -3,7 +3,6 @@ package com.braylabs.m4j.parser;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
@@ -11,10 +10,10 @@ import java.util.Stack;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.DiagnosticErrorListener;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
+import org.antlr.v4.runtime.RuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
@@ -26,8 +25,6 @@ import com.braylabs.m4j.lang.MVal;
 import com.braylabs.m4j.lang.MVal.BinaryOp;
 import com.braylabs.m4j.lang.MVal.UnaryOp;
 import com.braylabs.m4j.lang.RoutineProxy;
-import com.braylabs.m4j.parser.MCmd.MCmdI;
-import com.braylabs.m4j.parser.MCmd.MCmdQ;
 import com.braylabs.m4j.parser.MUMPSParser.ArgContext;
 import com.braylabs.m4j.parser.MUMPSParser.ArgsContext;
 import com.braylabs.m4j.parser.MUMPSParser.CmdContext;
@@ -89,10 +86,10 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			
 			if (ret == null) {
 				// ???
-			} else if (ret instanceof MCmdQ.QuitReturn) {
+			} else if (ret instanceof QuitReturn) {
 				// quit and return;
 				return ret;
-			} else if (ret == MCmdI.FALSE) {
+			} else if (ret == MFlowControl.FALSE) {
 				// returned false, stop processing this line
 				break;
 			}
@@ -165,6 +162,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	
 	@Override
 	public MVal visitLiteral(LiteralContext ctx) {
+		
 		// for string literals, strip the surrounding "'s
 		if (ctx.STR_LITERAL() != null) {
 			String str = ctx.STR_LITERAL().getText();
@@ -178,7 +176,12 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 
 	@Override
 	public MVal visitExpr(ExprContext ctx) {
-		List<Object> postfix = infixToPostfix(ctx.children);
+		List<Object> postfix = null;
+		try {
+			postfix = infixToPostfix(ctx.children);
+		} catch (Exception ex) {
+			throw new MUMPSInterpretError(ctx, "Error interpreting expression", ex, true);
+		}
 		if (this.debug) {
 			System.out.println("PostFIX: " + postfix);
 		}
@@ -352,7 +355,8 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		MVal val = (MVal) visit(rhs);
 		
 		if (!oper.getText().equals("=")) {
-			throw new RuntimeException("Expected a =");
+			throw new MUMPSInterpretError(expr, "Expected a '='");
+			
 		}
 		
 		if (lhs instanceof RefContext) {
@@ -392,7 +396,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 				return var;
 			}
 		}
-		throw new MUMPSInterpretError(lhs, "Unknown target for SET command");
+		throw new MUMPSInterpretError((ParserRuleContext) lhs, "Unknown target for SET command");
 	}
 	
 	private Object CMD_N(CmdContext ctx) {
@@ -400,7 +404,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		List<String> vars = new ArrayList<>();
 		for (ExprContext expr : ctx.exprList().expr()) {
 			// should contain a ref, but treat it as a literal value not a variable reference
-			vars.add(expr.ref().getText());
+			vars.add(expr.ref(0).getText());
 		}
 		// newed all them vars!
 		proc.push(false, vars.toArray(new String[]{}));
@@ -458,6 +462,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		MVar loopVar = (MVar) CMD_S(exprList.expr(0));
 		MVal inc = (MVal) visit(exprList.getChild(2));
 		MVal limit = (MVal) visit(exprList.getChild(4));
+		boolean countDown = inc.apply(BinaryOp.LTE, MVal.valueOf(-1)).isTruthy();
 
 		// get the parent line and determine the location of this for command
 		int cmdIdx = -1;
@@ -469,6 +474,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		}
 		if (cmdIdx < 0) throw new IllegalArgumentException("Unable to determine where the FOR command is in the list");
 
+		// TODO: need a pre-check?  this will always run once.
 		for(;;) {
 			Object ret = null;
 			// execute subsequent commands on line
@@ -494,13 +500,15 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			MUMPS.$INCREMENT(loopVar, inc);
 			
 			// if the increment is equal to the limit, break
-			if (MVal.valueOf(loopVar).apply(BinaryOp.GTE, limit).isTruthy()) {
+			if (countDown && MVal.valueOf(loopVar).apply(BinaryOp.LT, limit).isTruthy()) {
+				break;
+			} else if (!countDown && MVal.valueOf(loopVar).apply(BinaryOp.GT, limit).isTruthy()) {
 				break;
 			}
 		}
 
 		// loop has been completely executed, stop processing further commands on line (like IF statement)
-		return MCmdI.FALSE;
+		return MFlowControl.FALSE;
 	}
 	
 	/** This is only the argument-less, legacy version of DO currently */
@@ -522,7 +530,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			Object ret = visitLine(line.line());
 //			System.out.println("EVAL INDENT LINE: " + line.line().toStringTree(parser));
 
-			if (ret instanceof MCmdQ.QuitReturn) {
+			if (ret instanceof QuitReturn) {
 				break;
 			}
 		}
@@ -783,7 +791,20 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	public static class MFlowControl {
 		public static MFlowControl QUIT=new MFlowControl();
 		public static MFlowControl ERROR=new MFlowControl();
+		public static MFlowControl FALSE=new MFlowControl();
+		public static MFlowControl TRUE=new MFlowControl();
+		public static MFlowControl HALT=new MFlowControl();
+	}
+	public static class QuitReturn {
+		private Object val;
 
+		public QuitReturn(Object val) {
+			this.val = val;
+		}
+		
+		public Object getValue() {
+			return this.val;
+		}
 	}
 	
 	public static class UnderlineErrorListener extends BaseErrorListener {

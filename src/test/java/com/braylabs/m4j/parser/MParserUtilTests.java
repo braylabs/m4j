@@ -1,11 +1,9 @@
 package com.braylabs.m4j.parser;
 
 import static com.braylabs.m4j.parser.MParserUtils.evalNumericValue;
-import static com.braylabs.m4j.parser.MParserUtils.infixToPostFix;
 import static com.braylabs.m4j.parser.MParserUtils.parseRef;
 import static com.braylabs.m4j.parser.MParserUtils.strContains;
 import static com.braylabs.m4j.parser.MParserUtils.tokenize;
-import static com.braylabs.m4j.parser.MParserUtils.tokenizeOps;
 import static com.braylabs.m4j.parser.MParserUtils.matches;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -196,6 +194,10 @@ public class MParserUtilTests {
 		// non-canatonical
 		assertEquals(123.0, evalNumericValue("0000123.000"));
 		assertEquals(123.12, evalNumericValue("+00123.12000"));
+		
+		// these were crashing things
+		assertEquals(0, evalNumericValue("."));
+		assertEquals(0, evalNumericValue(".!?"));
 
 		// strange case of multiple prefix operators: "-+-++-7" does nothing here (only works on unary operator)
 		assertEquals(0, evalNumericValue("-+-++-7"));

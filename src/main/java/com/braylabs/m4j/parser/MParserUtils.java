@@ -225,7 +225,7 @@ public abstract class MParserUtils {
 		}
 		
 		// empty then not a string
-		if (str.isEmpty()) return new Integer(0);
+		if (str.isEmpty() || str.equals(".")) return new Integer(0);
 		
 		// should be a parsable number now
 		if (isFloat) {

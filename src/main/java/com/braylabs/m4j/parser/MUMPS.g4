@@ -125,6 +125,7 @@ expr
 	// strange results with UNARY_OP expr, doesn't seem to match -1?!? but this does
 	: ref '=' expr // assignment
 	| (AMBIG_OP|UNARY_OP) expr
+	| ref (BIN_OP|AMBIG_OP) ref // was having problems with XLFSTR:27
 	| expr (BIN_OP|AMBIG_OP) expr
 	| expr ('?' | '\'?') exprPattern // pattern match case
 	| ref
@@ -142,7 +143,7 @@ literal : STR_LITERAL | NUM_LITERAL	| '!'+;
 	
 
 BIN_OP
-	: '=' | '\'=' // equiv
+	: '=' | '\'=' // equivalent
 	| '#' | '*' | '**' | '/' | '\\' // arithmetic
 	| '>' | '>=' | '\'>' | '<' | '<=' | '\'<' // logical comparison 
 	| '_' | '[' | '\'['| ']' | '\']]' | '\']' | ']]' // string 
