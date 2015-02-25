@@ -16,13 +16,15 @@ import joptsimple.OptionSpec;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.misc.Interval;
 import org.h2.mvstore.MVStore;
 
 import com.braylabs.m4j.global.GlobalStore;
 import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
-import com.braylabs.m4j.parser.MCmd;
 import com.braylabs.m4j.parser.MInterpreter;
+import com.braylabs.m4j.parser.MInterpreter.MUMPSInterpretError;
 import com.braylabs.m4j.parser.MUMPSLexer;
 
 public class M4JShell {
@@ -66,10 +68,12 @@ public class M4JShell {
 		M4JRuntime runtime = new M4JRuntime(store);
 		M4JProcess proc = new M4JProcess(runtime, 0);
 		MInterpreter interp = new MInterpreter(proc);
+		proc.getSpecialVar("$ROUTINE").set("<CONSOLE>");
 		interp.setDebugMode(options.hasArgument(optDebug));
 		
 		// setup console and prompt
 		ConsoleReader reader = new ConsoleReader();
+		reader.setExpandEvents(false);
 		reader.addCompleter(new RuntimeCompleter(proc));
 		reader.print("Welcome to M4J console, type 'H' to quit\n");
         reader.setPrompt("\n\u001B[32mM4J\u001B[0m> ");

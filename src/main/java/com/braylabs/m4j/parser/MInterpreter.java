@@ -566,9 +566,14 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			}
 			
 			try {
-				return MVal.valueOf(proxy.call("$"+id1,proc, args));
+				Object ret = proxy.call("$"+id1,proc, args);
+				if (debug) {
+					System.out.println("Output of $"+id1+" is: " + ret);
+				}
+				return MVal.valueOf(ret);
 			} catch (Exception e) {
-				throw new IllegalArgumentException("Error calling: $"+id1, e);
+				throw new MUMPSInterpretError(ctx, "Error calling: $"+id1, e, true);
+				
 			}
 		} else if (flags.equals("$$")) {
 			// $$ indicates invoke a routine (w or w/o an entrypoint indicator)
@@ -598,7 +603,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 				rvar.set(proxy.getName());
 				return proxy.call(ep, proc, args.toArray(new Object[] {}));
 			} catch (Exception e) {
-				throw new IllegalArgumentException("Error invoking: " + ep + "^" + routine, e);
+				throw new MUMPSInterpretError(ctx, "Error invoking: " + ep + "^" + routine, e, true).setRoutine(oldVal);
 			} finally {
 				// restore old value
 				if (oldVal != null) rvar.set(oldVal);
@@ -815,16 +820,35 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	 * TODO: how to fetch the original source file to display the error in its context?
 	 * @author brian
 	 */
-	public static class MUMPSInterpretError extends RuntimeException {
-		private ParseTree ctx;
+	public class MUMPSInterpretError extends RuntimeException {
+		private ParserRuleContext ctx;
+		private String routineName;
 
-		public MUMPSInterpretError(ParseTree ctx, String msg) {
-			super(msg);
-			this.ctx = ctx;
+		public MUMPSInterpretError(ParserRuleContext ctx, String msg) {
+			this(ctx, msg, null, false);
 		}
 		
-		public ParseTree getContext() {
+		public MUMPSInterpretError(ParserRuleContext ctx, String msg, Throwable causedBy, boolean suppress) {
+			super(msg, causedBy, suppress, !suppress);
+			this.ctx = ctx;
+			this.routineName = MInterpreter.this.proc.getLocal("$ROUTINE").valStr();
+		}
+		
+		public ParserRuleContext getRuleContext() {
 			return ctx;
+		}
+		
+		public MUMPSInterpretError setRoutine(String routine) {
+			this.routineName = routine;
+			return this;
+		}
+		
+		@Override
+		public String getMessage() {
+			String ret = super.getMessage();
+			Token start = getRuleContext().getStart();
+			ret += " (" + routineName + "@" + start.getLine() + ":" + start.getCharPositionInLine() + ")";
+			return ret;
 		}
 	}
 }

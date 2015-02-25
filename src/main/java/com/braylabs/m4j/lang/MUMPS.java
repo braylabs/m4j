@@ -36,7 +36,6 @@ public class MUMPS {
 
 	/* TODO: Other ANSI-standard M functions to implement
 	 * GLobals (these need MMap to be finished first)
-	$Increment()
 	$NAme()
 	$Next()
 	$Qlength()
@@ -46,7 +45,6 @@ public class MUMPS {
 	Other string functions:
 	$FNumber()
 	$Justify()
-	$Length()
 	$Translate()
 	
 	Not sure if these can be done yet:

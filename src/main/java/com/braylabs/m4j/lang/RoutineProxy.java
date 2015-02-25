@@ -3,6 +3,7 @@ package com.braylabs.m4j.lang;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.LineNumberReader;
 import java.io.Reader;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -10,6 +11,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -31,6 +35,8 @@ import com.braylabs.m4j.parser.MUMPSParser.RoutineLineContext;
 public interface RoutineProxy {
 	public String getName();
 	public Set<String> getEntryPointNames();
+	public String getRoutineLine(int idx) throws IOException;
+	public URI getRoutineURI() throws IOException;
 	public Object call(String entrypoint, M4JProcess proc, Object... params) throws Exception;
 	
 	public class MInterpRoutineProxy implements RoutineProxy {
@@ -39,9 +45,11 @@ public interface RoutineProxy {
 		private FileContext fileContext;
 		private String name;
 		private Set<String> eps;
+		private File file;
 
 		public MInterpRoutineProxy(File f) throws IOException {
 			this(new FileReader(f));
+			this.file = f;
 		}
 		
 		public MInterpRoutineProxy(Reader r) throws IOException {
@@ -78,6 +86,23 @@ public interface RoutineProxy {
 		@Override
 		public Object call(String entrypoint, M4JProcess proc, Object... params) throws Exception {
 			return proc.getInterpreter().evalRoutine(this.fileContext, entrypoint, params);
+		}
+
+		@Override
+		public URI getRoutineURI() {
+			return this.file.toURI();
+		}
+		
+		
+		@Override
+		public String getRoutineLine(int idx) throws IOException {
+			LineNumberReader fr = new LineNumberReader(new FileReader(this.file));
+			String line = fr.readLine();
+			while (line != null && fr.getLineNumber() < idx) {
+				line = fr.readLine();
+			}
+			fr.close();
+			return line;
 		}
 		
 	}
@@ -290,6 +315,16 @@ public interface RoutineProxy {
 			
 			// success
 			return ret;
+		}
+
+		@Override
+		public String getRoutineLine(int idx) {
+			return null;
+		}
+		
+		@Override
+		public URI getRoutineURI() throws IOException {
+			return null;
 		}
 		
 	}
