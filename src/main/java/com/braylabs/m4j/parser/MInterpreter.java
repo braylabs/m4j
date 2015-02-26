@@ -420,7 +420,8 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			// wrap return value in marker class
 			ret = new QuitReturn(ret);
 		} else {
-			// console mode Q should just quit
+			// Q w/o any expressions usually indicates quit loop, etc.
+			return MFlowControl.QUIT;
 		}
 		
 		return ret;
@@ -454,14 +455,12 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		// F i=1:1:10 style expression
 		ExprListContext exprList = ctx.exprList();
 		int size = exprList.children.size();
-		if (size != 5) throw new IllegalArgumentException("FOR command expected 5 tokens in command list");
-		if (!exprList.getChild(1).getText().equals(":") || !exprList.getChild(3).getText().equals(":")) 
-			throw new IllegalArgumentException("FOR Command didn't have the :'s as expected"); 
+		if (size < 3) throw new IllegalArgumentException("FOR command expected 3+ tokens in command list");
 		
 		// execute the first expression as an assignment operator, get the loop variable reference
 		MVar loopVar = (MVar) CMD_S(exprList.expr(0));
 		MVal inc = (MVal) visit(exprList.getChild(2));
-		MVal limit = (MVal) visit(exprList.getChild(4));
+		MVal limit = (exprList.children.size() >= 5) ? (MVal) visit(exprList.getChild(4)) : null;
 		boolean countDown = inc.apply(BinaryOp.LTE, MVal.valueOf(-1)).isTruthy();
 
 		// get the parent line and determine the location of this for command
@@ -483,7 +482,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 				
 				if (ret == null) {
 					// ???
-				} else if (ret instanceof QuitReturn) {
+				} else if (ret == MFlowControl.QUIT || ret instanceof QuitReturn) {
 					// quit within loop indicate terminate loop
 					break;
 				} else if (ret == MFlowControl.FALSE) {
@@ -492,7 +491,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 				}
 			}
 			
-			if (ret instanceof QuitReturn) {
+			if (ret == MFlowControl.QUIT || ret instanceof QuitReturn) {
 				break;
 			}
 
@@ -500,9 +499,9 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			MUMPS.$INCREMENT(loopVar, inc);
 			
 			// if the increment is equal to the limit, break
-			if (countDown && MVal.valueOf(loopVar).apply(BinaryOp.LT, limit).isTruthy()) {
+			if (countDown && limit != null && MVal.valueOf(loopVar).apply(BinaryOp.LT, limit).isTruthy()) {
 				break;
-			} else if (!countDown && MVal.valueOf(loopVar).apply(BinaryOp.GT, limit).isTruthy()) {
+			} else if (!countDown && limit != null && MVal.valueOf(loopVar).apply(BinaryOp.GT, limit).isTruthy()) {
 				break;
 			}
 		}
