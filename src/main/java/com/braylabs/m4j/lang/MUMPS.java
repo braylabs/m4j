@@ -54,6 +54,11 @@ public class MUMPS {
 	$View()
 	*/
 	
+	@M4JEntryPoint(name={"$S","$SELECT"})
+	public static final Object $SELECT(Object args) {
+		return null;
+	}
+	
 	/**
 	 * Returns the MUMPS style date of "ddddd,sssss" which represents 
 	 * the number of days since December 31, 1840, where day 1 is January 1, 1841 and sssss represents 

@@ -12,8 +12,6 @@ import java.lang.annotation.Target;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -22,15 +20,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Stack;
 
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
-import com.braylabs.m4j.parser.MInterpreter;
-import com.braylabs.m4j.parser.MUMPSParser;
-import com.braylabs.m4j.parser.MUMPSParser.FileContext;
-import com.braylabs.m4j.parser.MUMPSParser.LinesContext;
-import com.braylabs.m4j.parser.MUMPSParser.RoutineLineContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.FileContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.LineContext;
 
 public interface RoutineProxy {
 	public String getName();
@@ -41,7 +35,7 @@ public interface RoutineProxy {
 	
 	public class MInterpRoutineProxy implements RoutineProxy {
 		
-		private MUMPSParser parser;
+		private MUMPS2Parser parser;
 		private FileContext fileContext;
 		private String name;
 		private Set<String> eps;
@@ -57,15 +51,15 @@ public interface RoutineProxy {
 		}
 		
 		private void init(Reader r) throws IOException {
-			this.parser = MInterpreter.parse(r);
+			this.parser = M4JInterpreter2.parse(r);
 			this.fileContext = parser.file();
 			
 			// name is equal to the name of the first entrypoint
-			this.name = fileContext.routineLine(0).entryPoint().ID().getText();
+			this.name = fileContext.entryPoint().ID().getText();
 			
 			// quick loop through lines to discover all entryPoint lines
 			Set<String> eps = new HashSet<>();
-			for (RoutineLineContext line : fileContext.routineLine()) {
+			for (LineContext line : fileContext.line()) {
 				if (line.entryPoint() != null) {
 					eps.add(line.entryPoint().ID().getText());
 				}
@@ -85,7 +79,7 @@ public interface RoutineProxy {
 
 		@Override
 		public Object call(String entrypoint, M4JProcess proc, Object... params) throws Exception {
-			return proc.getInterpreter().evalRoutine(this.fileContext, entrypoint, params);
+			return proc.getInterpreter2().evalRoutine(this.fileContext, entrypoint, params);
 		}
 
 		@Override

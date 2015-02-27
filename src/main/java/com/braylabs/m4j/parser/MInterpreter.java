@@ -3,6 +3,7 @@ package com.braylabs.m4j.parser;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
@@ -561,6 +562,11 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 					throw new MUMPSInterpretError(ctx, "Unable to resolve: $" + id1 + " as system function or special variable");
 				}
 				return ret;
+			}
+			
+			// special handling of args for $SELECT, $CASE, $TEXT, etc.
+			if (Arrays.asList("S","SELECT","C","CASE","T","TEXT").contains(id1)) {
+				// TODO: Implement this
 			}
 			
 			// resolve args (if any)
