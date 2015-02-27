@@ -75,6 +75,7 @@ ref
     | '^(' args ')'       		// naked global reference
     | refFlags? ID '@'+ // indirection
     | refFlags? ID '(' args? ')' '@'+ // indirection @$$CURNODE()@
+    | refFlags? ID '(' args? ')' '@'+ '(' args? ')' // indirection @$$CURNODE()@("\s") from JSONVPRD.int
     | refFlags? ID '@' '(' args ')' // indirection
     | '@' '(' args ')' // indirection
     | refFlags? ID '(' args ')'     
@@ -107,41 +108,32 @@ exprList
 	: expr ((',' | '!' | ':') expr)* // IF uses !'s, most others use ,'s, FOR uses :'s
 ;
 
-/* orignal
-expr
-	: literal (BIN_OP expr)* #BinaryOpExpr
-	| ref '=' expr         #AssignExpr
-	| expr BIN_OP expr     #BinaryOpExpr
-	| ref (BIN_OP expr)*   #BinaryOpExpr 
-	| '(' expr ')'         #BinaryOpExpr
-	| '(' ID (',' ID)* ')' #IDListExpr
-	| BIN_OP expr          #BinaryOpExpr
-//	| unaryop=('-' | '+' | '\'') expr    #UnaryExpr
-//	| UNARY_OP expr #UnaryExpr
-//	| UNARY_OP '(' expr ')' #UnaryExpr
-;
- */
 expr 
 	// strange results with UNARY_OP expr, doesn't seem to match -1?!? but this does
 	: ref '=' expr // assignment
 	| (AMBIG_OP|UNARY_OP) expr
 	| ref (BIN_OP|AMBIG_OP) ref // was having problems with XLFSTR:27
 	| expr (BIN_OP|AMBIG_OP) expr
-	| expr ('?' | '\'?') exprPattern // pattern match case
+	| expr ('!') expr
+	| expr (QMARK | '\'?') exprPatternItem+ // pattern match case
 	| ref
 	| literal
-	| '?' NUM_LITERAL // weird indenting expressions for W (ie: ?35)
+	| QMARK NUM_LITERAL // weird indenting expressions for W (ie: ?35)
 	| '(' expr ')'
 	| '(' ID (',' ID)* ')'
 	;
 
 //X1?1"^"1"[".E1"]".E
-exprPattern: exprPatternItem+;
-exprPatternItem: (DOT | NUM_LITERAL) (ID | STR_LITERAL)+;
+exprPatternItem
+	: NUM_LITERAL (ID | STR_LITERAL)      // X?1"FOO"
+	| NUM_LITERAL DOT (ID | STR_LITERAL)  // X?1."F"
+	| DOT (ID | STR_LITERAL)              // X?.N
+	| DOT NUM_LITERAL (ID | STR_LITERAL)   // X?.1"-" 
+;
 
 literal : STR_LITERAL | NUM_LITERAL	| '!'+;
 	
-
+QMARK: '?';
 BIN_OP
 	: '=' | '\'=' // equivalent
 	| '#' | '*' | '**' | '/' | '\\' // arithmetic

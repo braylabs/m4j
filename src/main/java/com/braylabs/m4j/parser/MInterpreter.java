@@ -32,7 +32,7 @@ import com.braylabs.m4j.parser.MUMPSParser.CmdListContext;
 import com.braylabs.m4j.parser.MUMPSParser.EpArgsContext;
 import com.braylabs.m4j.parser.MUMPSParser.ExprContext;
 import com.braylabs.m4j.parser.MUMPSParser.ExprListContext;
-import com.braylabs.m4j.parser.MUMPSParser.ExprPatternContext;
+import com.braylabs.m4j.parser.MUMPSParser.ExprPatternItemContext;
 import com.braylabs.m4j.parser.MUMPSParser.FileContext;
 import com.braylabs.m4j.parser.MUMPSParser.LineContext;
 import com.braylabs.m4j.parser.MUMPSParser.LinesContext;
@@ -366,9 +366,9 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			if (ref.refFlags() != null && ref.refFlags().getText().equals("$") && 
 					ref.ID(0).getText().toUpperCase().startsWith("E")) {
 				// bypass function execution, just get the args
-				MVar var = (MVar) visitArg(ref.args().arg(0));
-				MVal arg1 = MVal.valueOf(visitArg(ref.args().arg(1)));
-				MVal arg2 = (ref.args().arg().size() >= 3) ? MVal.valueOf(visitArg(ref.args().arg(2))) : arg1;
+				MVar var = (MVar) visitArg(ref.args(0).arg(0));
+				MVal arg1 = MVal.valueOf(visitArg(ref.args(0).arg(1)));
+				MVal arg2 = (ref.args(0).arg().size() >= 3) ? MVal.valueOf(visitArg(ref.args(0).arg(2))) : arg1;
 				
 				// replace the string with the new value
 				StringBuffer sb = new StringBuffer(var.valStr());
@@ -380,9 +380,9 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			} else if (ref.refFlags() != null && ref.refFlags().getText().equals("$") &&
 					ref.ID(0).getText().toUpperCase().startsWith("P")) {
 				// bypass executing the function, and get the args
-				MVar var = (MVar) visitArg(ref.args().arg(0));
-				String delim = MVal.valueOf(visitArg(ref.args().arg(1))).toString();
-				Number from = (ref.args().arg().size() >= 3) ? MVal.valueOf(visitArg(ref.args().arg(2))).toNumber() : 1;
+				MVar var = (MVar) visitArg(ref.args(0).arg(0));
+				String delim = MVal.valueOf(visitArg(ref.args(0).arg(1))).toString();
+				Number from = (ref.args(0).arg().size() >= 3) ? MVal.valueOf(visitArg(ref.args(0).arg(2))).toNumber() : 1;
 
 				// do the string replacement, update the value and return
 				var.set(MUMPS.$PIECE(var.valStr(), delim, from.intValue(), val.toString()));
@@ -566,9 +566,9 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			// resolve args (if any)
 			Object[] args = new Object[0];
 			if (ctx.args() != null) {
-				args = new Object[ctx.args().arg().size()];
+				args = new Object[ctx.args(0).arg().size()];
 				for (int i=0; i < args.length; i++) {
-					args[i] = visitArg(ctx.args().arg(i));
+					args[i] = visitArg(ctx.args(0).arg(i));
 				}
 			}
 			
@@ -606,7 +606,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 			MVar rvar = proc.getLocal("$ROUTINE");
 			String oldVal = rvar.valStr();
 			try {
-				List<MVal> args = resolveArgsToMVals(ctx.args());
+				List<MVal> args = resolveArgsToMVals(ctx.args(0));
 				rvar.set(proxy.getName());
 				return proxy.call(ep, proc, args.toArray(new Object[] {}));
 			} catch (Exception e) {
@@ -626,8 +626,8 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 		}
 		
 		// if its a subscripted global/var, resolve that as well
-		if (ctx.args() != null) {
-			for (ArgContext arg : ctx.args().arg()) {
+		if (ctx.args() != null && !ctx.args().isEmpty()) {
+			for (ArgContext arg : ctx.args(0).arg()) {
 				MVal obj = MVal.valueOf(visitArg(arg));
 				ret = ret.get(obj.toString());
 			}
@@ -647,7 +647,7 @@ public class MInterpreter extends MUMPSBaseVisitor<Object> {
 	}
 	
 	@Override
-	public Object visitExprPattern(ExprPatternContext ctx) {
+	public Object visitExprPatternItem(ExprPatternItemContext ctx) {
 		// for now, just returning whole pattern as a string and re-interpreting
 		// the pattern as part of the operator, not sure if thats appropriate/optimal...
 		return ctx.getText();
