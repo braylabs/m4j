@@ -9,10 +9,25 @@ import com.braylabs.m4j.parser.MParserUtils;
 /** Intended to represent a M Value which can be evaluated in a variety of ways implement operators as well */
 public class MVal {
 	
+	public static Map<String,BinaryOp> BINARY_OPS = new HashMap<>();
+	public static Map<String,UnaryOp> UNARY_OPS = new HashMap<>();
+	public static MVal TRUE = new MVal(1);
+	public static MVal FALSE = new MVal(0);
 	private Number numVal;
 	private String strVal;
 	private Object objVal;
-	
+
+	static {
+		// index the operators by their symbol
+		for (BinaryOp op : BinaryOp.values()) {
+			BINARY_OPS.put(op.toString(), op);
+		}
+		
+		for (UnaryOp op : UnaryOp.values()) {
+			UNARY_OPS.put(op.toString(), op);
+		}
+	}
+
 	public MVal(Object obj) {
 		if (obj == null) obj = "";
 		objVal = obj;
@@ -87,6 +102,77 @@ public class MVal {
 		return MParserUtils.matches(this.toString(), val.toString());
 	}
 	
+	public boolean matches(int offset, int repeat, char... codes) {
+		MatchOp[] ops = new MatchOp[codes.length];
+		for (int i=0; i < codes.length; i++) {
+			ops[i] = MatchOp.valueOf("" + codes[i]);
+		}
+		return matches(offset, repeat, ops);
+	}
+	
+	public boolean matches(int offset, int repeat, MatchOp... codes) {
+		// validate
+		if (offset < 0 || repeat == 0) return false;
+		
+		for (int i=0; i < repeat; i++) {
+			if (offset + i >= strVal.length()) return false;
+			char c = strVal.charAt(offset + i);
+			
+			boolean val = false;
+			for (int j=0; j < codes.length; j++) {
+				MatchOp code = codes[j];
+				if (code == MatchOp.A && Character.isAlphabetic(c)) {
+					val = true; break; // alpha
+				} else if (code == MatchOp.C && ((c >= 0 && c <= 31) || (c >= 127 && c <= 159))) {
+					val = true; break; // control character
+				} else if (code == MatchOp.L && Character.isLowerCase(c)) {
+					val = true; break; // lowercase
+				} else if (code == MatchOp.U && Character.isUpperCase(c)) {
+					val = true; break; // uppercase
+				} else if (code == MatchOp.N && Character.isDigit(c)) {
+					val = true; break; // numeric digit
+				} else if (code == MatchOp.E) {
+					val = true; break; // any characters
+				} else if (code == MatchOp.P && (
+						(c >= 32 && c <= 47) || (c >= 58 && c <= 64) ||
+						(c >= 91 && c <= 96) || (c >= 123 && c <= 126) ||
+						(c >= 160 && c <= 169) || (c >= 171 && c <= 177) ||
+						(c >= 182 && c <= 184) || c == 180 || c == 187 || 
+						c == 191 || c == 215 || c == 247)) {
+					val = true; break; // punctuation
+				}
+			}
+			
+			if (!val) return false;
+		}
+		
+		return true;
+	}
+	
+	public boolean matches(int offset, int repeat, String literal) {
+		int idx = 0;
+
+		// bad arguments
+		if (repeat == 0) return false;
+		if (offset < 0) return false;
+		
+		// empty string only matches another empty string, otherwise nothing
+		if (literal.isEmpty() && strVal.isEmpty()) return true;
+		if (literal.isEmpty()) return false;
+
+		if (repeat < 0) repeat = (strVal.length()-offset) / literal.length();
+		for (int i=0; i < repeat; i++) {
+			if (offset + idx > strVal.length()) break;
+			String substr = strVal.substring(offset + idx);
+			if (!substr.startsWith(literal)) {
+				return false;
+			}
+			idx += literal.length();
+		}
+		
+		return true;
+	}
+	
 	@Override
 	public boolean equals(Object obj) {
 		return this.strVal.equals(obj.toString());
@@ -115,6 +201,8 @@ public class MVal {
 			MVar var = (MVar) obj;
 			if (!var.isDefined()) throw new IllegalArgumentException("<UNDEFINED> " + obj.toString());
 			return new MVal(var.val());
+		} else if (obj instanceof Boolean) {
+			return (((Boolean) obj).booleanValue()) ? MVal.TRUE : MVal.FALSE;
 		}
 		return new MVal(obj);
 	}
@@ -159,19 +247,20 @@ public class MVal {
 		}
 	}
 	
-	public static Map<String,BinaryOp> BINARY_OPS = new HashMap<>();
-	public static Map<String,UnaryOp> UNARY_OPS = new HashMap<>();
-	static {
-		// index the operators by their symbol
-		for (BinaryOp op : BinaryOp.values()) {
-			BINARY_OPS.put(op.toString(), op);
-		}
-		
-		for (UnaryOp op : UnaryOp.values()) {
-			UNARY_OPS.put(op.toString(), op);
-		}
+	public enum MatchOp {
+		/** A = Alphabetic characters */
+		A,
+		/** C = Control characters */
+		C,
+		/** E = Any character (including whitespace and control */
+		E,
+		/** L = Any lower case alphabetic character */
+		L,
+		/** N = Any numerical digit 0-9 */
+		N,
+		/** P = Any punctuation character */
+		P,
+		/** U = Any upper case alphabetic character */
+		U;
 	}
-
-	
-
 }

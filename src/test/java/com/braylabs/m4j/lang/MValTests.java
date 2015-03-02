@@ -3,6 +3,7 @@ package com.braylabs.m4j.lang;
 import org.junit.Test;
 
 import com.braylabs.m4j.lang.MVal.BinaryOp;
+import com.braylabs.m4j.lang.MVal.MatchOp;
 import com.braylabs.m4j.lang.MVal.UnaryOp;
 
 import static com.braylabs.m4j.lang.MVal.valueOf;
@@ -132,13 +133,6 @@ public class MValTests {
 	}
 	
 	@Test
-	public void testStrange() {
-		// TODO: W +"-+-+-7" // returns -7
-		assertEquals(-7, valueOf("-+-+-7").apply(UnaryOp.POS));
-	}
-	
-	
-	@Test
 	public void testConcat() {
 		assertEquals(100100, testNum(100,100, BinaryOp.CONCAT));
 		assertEquals("AB", testStr("A","B", BinaryOp.CONCAT));
@@ -181,6 +175,131 @@ public class MValTests {
 
 		// w '10 // returns 0
 		assertEquals(0, valueOf(10).apply(UnaryOp.NOT).toNumber());
+	}
+	
+	@Test
+	public void testMatchLiteral() {
+		MVal v = valueOf("FOO");
+		// simple matches
+		assertTrue(v.matches(0, 1, "FOO"));
+		assertTrue(v.matches(0, 1, "FO"));
+		assertTrue(v.matches(0, 1, "F"));
+		
+		// simple non-matches
+		assertFalse(v.matches(0, 1, "BAR"));
+		assertFalse(v.matches(0, 1, "FOOD"));
+		assertFalse(v.matches(0, 1, "foo"));
+		
+		// offset matches
+		assertTrue(v.matches(1, 1, "OO"));
+		assertTrue(v.matches(1, 2, "O"));
+		
+		// offset non-matches
+		assertFalse(v.matches(1, 1, "F"));
+		assertFalse(v.matches(1, 3, "O"));
+
+		// unbounded matches
+		v = valueOf("AAAAAAAAAAAAA");
+		assertTrue(v.matches(2, -1, "A"));
+		
+		// border cases
+		v = valueOf("");
+		assertTrue(v.matches(0, 1, ""));
+		assertFalse(v.matches(0, 1, " "));
+		assertFalse(v.matches(-10, 1, ""));
+	}
+	
+	@Test
+	public void testMatchCode() {
+		
+		// check offsets and repeats
+		MVal v = valueOf("ABC");
+		assertTrue(v.matches(0, 1, MatchOp.A));
+		assertTrue(v.matches(0, 3, MatchOp.A));
+		assertFalse(v.matches(0, 4, MatchOp.A));
+		assertTrue(v.matches(1, 2, MatchOp.A));
+		assertTrue(v.matches(2, 1, MatchOp.A));
+		assertFalse(v.matches(3, 1, MatchOp.A));
+		
+		// -1 repeat indicates anything
+		assertTrue(v.matches(0, -1, MatchOp.A));
+		
+		// border/error cases
+		assertFalse(v.matches(-1, 1, MatchOp.A));
+		assertFalse(v.matches(10, 1, MatchOp.A));
+		assertFalse(v.matches(10, 0, MatchOp.A));
+		assertFalse(v.matches(0, 999, MatchOp.A));
+		
+		// check empty string
+		v = valueOf("");
+		assertFalse(v.matches(0, 1, MatchOp.U));
+		assertFalse(v.matches(0, 1, MatchOp.E));
+		assertFalse(v.matches(0, 1, MatchOp.A));
+		assertFalse(v.matches(0, 1, MatchOp.L));
+		assertFalse(v.matches(0, 1, MatchOp.C));
+		assertFalse(v.matches(0, 1, MatchOp.N));
+		assertFalse(v.matches(0, 1, MatchOp.P));
+		
+		// check upper case
+		v = valueOf("ABC");
+		assertTrue(v.matches(0, 3, MatchOp.U));
+		assertTrue(v.matches(0, 3, MatchOp.E));
+		assertTrue(v.matches(0, 3, MatchOp.A));
+		assertFalse(v.matches(0, 3, MatchOp.L));
+		assertFalse(v.matches(0, 3, MatchOp.C));
+		assertFalse(v.matches(0, 3, MatchOp.N));
+		assertFalse(v.matches(0, 3, MatchOp.P));
+		
+		// check lower case
+		v = valueOf("abc");
+		assertTrue(v.matches(0, 3, MatchOp.E));
+		assertTrue(v.matches(0, 3, MatchOp.A));
+		assertTrue(v.matches(0, 3, MatchOp.L));
+		assertFalse(v.matches(0, 3, MatchOp.U));
+		assertFalse(v.matches(0, 3, MatchOp.C));
+		assertFalse(v.matches(0, 3, MatchOp.N));
+		assertFalse(v.matches(0, 3, MatchOp.P));
+		
+		// check digits
+		v = valueOf("123");
+		assertTrue(v.matches(0, 3, MatchOp.E));
+		assertTrue(v.matches(0, 3, MatchOp.N));
+		assertFalse(v.matches(0, 3, MatchOp.A));
+		assertFalse(v.matches(0, 3, MatchOp.L));
+		assertFalse(v.matches(0, 3, MatchOp.U));
+		assertFalse(v.matches(0, 3, MatchOp.C));
+		assertFalse(v.matches(0, 3, MatchOp.P));
+		
+		// check control characters
+		v = valueOf("\t\n\r\f");
+		assertTrue(v.matches(0, 4, MatchOp.E));
+		assertTrue(v.matches(0, 4, MatchOp.C));
+		assertFalse(v.matches(0, 4, MatchOp.N));
+		assertFalse(v.matches(0, 4, MatchOp.A));
+		assertFalse(v.matches(0, 4, MatchOp.L));
+		assertFalse(v.matches(0, 4, MatchOp.U));
+		assertFalse(v.matches(0, 4, MatchOp.P));
+		
+		// check punctuation
+		v = valueOf("!.'~");
+		assertTrue(v.matches(0, 4, MatchOp.E));
+		assertTrue(v.matches(0, 3, MatchOp.P));
+		assertFalse(v.matches(0, 4, MatchOp.N));
+		assertFalse(v.matches(0, 4, MatchOp.A));
+		assertFalse(v.matches(0, 4, MatchOp.L));
+		assertFalse(v.matches(0, 4, MatchOp.U));
+		assertFalse(v.matches(0, 4, MatchOp.C));
+	}
+	
+	@Test
+	public void testMatchCompoundCodes() {
+		MVal v = valueOf("ABC123");
+		assertTrue(v.matches(0, 6, MatchOp.U, MatchOp.N));
+		assertFalse(v.matches(0, 7, MatchOp.U, MatchOp.N));
+		
+		v = valueOf("ABC123\n");
+		assertTrue(v.matches(0, 6, MatchOp.U, MatchOp.N));
+		assertFalse(v.matches(0, 7, MatchOp.U, MatchOp.N));
 	}
 	
 	private static Number testNum(Object a, Object b, MVal.BinaryOp op) {

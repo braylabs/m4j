@@ -1,5 +1,8 @@
 lexer grammar MUMPS2Lexer;
 
+tokens {COMMA}
+
+// start of a pattern, switch to pattern mode
 QMARK: '?' -> pushMode(PATTERN);
 
 OPER
@@ -11,12 +14,13 @@ OPER
 ;
 LP: '(';
 RP: ')';
-COMMA: ',';
+COMMA1: ',' -> type(COMMA);
 COLIN: ':';
 DD: '$$';
 D: '$';
 UP: '^';
 EXCL: '!';
+AT: '@';
 
 // whitespace
 NLI: '\r'? '\n' ' '; // indented new line
@@ -37,8 +41,11 @@ INT :   [0-9]+ ; // no leading zeros
 fragment EXP :   [Ee] [+\-]? INT ; // \- since - means "range" inside [...]
 COMMENT : ';'~[\n\r]* -> skip;
 
+// island grammar for pattern match operator
 mode PATTERN;
-PAT_END :[ ,\t] ->popMode;
+PAT_END :[ \t] ->popMode, skip; // space indicates end of pattern, go back to normal mode and skip this token
+PAT_END2 : ',' ->popMode, type(COMMA); // for W ?45,10 the comma indicates the end of pattern but should still be a comma token
 PAT_DOT : '.';
 PAT_INT : [0-9]+;
+PAT_LITERAL : '"' ('""'|~'"')* '"';
 PAT_CODE : [Aa] | [Cc] | [Ee] | [Ll] | [Nn] | [Pp] | [Uu];
