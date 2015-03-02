@@ -16,7 +16,6 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.mockito.Mockito;
 
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.lang.M4JInterpreter2;
@@ -24,19 +23,22 @@ import com.braylabs.m4j.lang.M4JRuntime;
 import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
 import com.braylabs.m4j.lang.MUMPS2Lexer;
 import com.braylabs.m4j.lang.MUMPS2Parser;
-import com.braylabs.m4j.lang.MUMPS2Parser.ArgsParamListContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.ArgsContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.CmdArgContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.CmdContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.CmdPostCondContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.EntryPointContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprBinaryContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprFuncContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprGroupContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.ExprIndirContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprLiteralContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.ExprMatchContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprRefContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprUnaryContext;
-import com.braylabs.m4j.lang.MUMPS2Parser.ExprVarContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.LineContext;
-import com.braylabs.m4j.lang.MUMPS2Parser.RefRoutineContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.LinesContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.RefContext;
 import com.braylabs.m4j.lang.RoutineProxy.MInterpRoutineProxy;
 import com.braylabs.m4j.lang.RoutineProxy.JavaClassProxy.M4JEntryPoint;
 import com.braylabs.m4j.lang.RoutineProxy.JavaClassProxy.M4JRoutine;
@@ -250,6 +252,17 @@ public class M4JInterpreter2Tests {
 	}
 	
 	@Test
+	public void testIndirection() {
+		eval("S X=\"FOO\",FOO=10 W @X");
+		verify(interp).visitLine(any(LineContext.class));
+		verify(interp, times(2)).visitCmd(any(CmdContext.class));
+		verify(interp).visitExprIndir(any(ExprIndirContext.class));
+		assertEquals("10", proc.toString());
+		
+		// TODO: test other forms of indirection
+	}
+	
+	@Test
 	public void testPostConditional() {
 		// expression evaluates
 		eval("W:1 1+2");
@@ -278,7 +291,7 @@ public class M4JInterpreter2Tests {
 		verify(interp).visitExprFunc(any(ExprFuncContext.class));
 		verify(interp, times(2)).visitExprBinary(any(ExprBinaryContext.class));
 		verify(interp, times(6)).visitExprLiteral(any(ExprLiteralContext.class));
-		verify(interp).visitArgsParamList(any(ArgsParamListContext.class));
+		verify(interp).visitArgs(any(ArgsContext.class));
 		
 		assertEquals("ONE", proc.toString());
 
@@ -290,6 +303,29 @@ public class M4JInterpreter2Tests {
 		
 		// validate check its output stream
 		assertEquals("\nHello World2\n", proc.toString());
+	}
+	
+	@Test
+	public void testCMDW() {
+		// write a variable should write the val()
+		eval("S FOO=10 W FOO");
+		assertEquals("10", proc.toString());
+
+		// ! is a literal meaning new line
+		eval("W !,10,!");
+		assertEquals("\n10\n", proc.toString());
+
+		// ?10 indicates indent to the 10th character is a literal meaning new line
+		eval("W ?10,10");
+		assertEquals("          10", proc.toString());
+
+		// # indicates clear screen
+		eval("W #,10");
+		assertEquals("\r\f10", proc.toString());
+
+		// compound use is ok too
+//		eval("W !?10,10,!");
+//		assertEquals("\n          10\n", proc.toString());
 	}
 	
 	@Test
@@ -323,7 +359,7 @@ public class M4JInterpreter2Tests {
 		verify(interp).visitLine(any(LineContext.class));
 		verify(interp).visitCmd(any(CmdContext.class));
 		verify(interp).visitExprRef(any(ExprRefContext.class));
-		verify(interp).visitRefRoutine(any(RefRoutineContext.class));
+		verify(interp).visitRef(any(RefContext.class));
 		
 		// invoke entry point within current routine 
 		reset(interp);
@@ -331,19 +367,11 @@ public class M4JInterpreter2Tests {
 		verify(interp).visitLine(any(LineContext.class));
 		verify(interp).visitCmd(any(CmdContext.class));
 		verify(interp).visitExprRef(any(ExprRefContext.class));
-		verify(interp).visitRefRoutine(any(RefRoutineContext.class));
+		verify(interp).visitRef(any(RefContext.class));
 	}
 	
 	@Test
 	public void testCallRoutineWithArgs() {
-		// GO/DO style routine call
-		eval("D SOME^ROUTINE(A,B)");
-		
-		verify(interp).visitLine(any(LineContext.class));
-		verify(interp).visitCmd(any(CmdContext.class));
-//		verify(interp).visitExprRef(any(ExprRefContext.class));
-//		verify(interp).visitRefRoutine(any(RefRoutineContext.class));
-		verify(interp, times(2)).visitExprVar(any(ExprVarContext.class));
 
 		// immediate execution style routine call
 		reset(interp);
@@ -351,7 +379,7 @@ public class M4JInterpreter2Tests {
 		verify(interp).visitLine(any(LineContext.class));
 		verify(interp).visitCmd(any(CmdContext.class));
 		verify(interp).visitExprRef(any(ExprRefContext.class));
-		verify(interp).visitRefRoutine(any(RefRoutineContext.class));
+		verify(interp).visitRef(any(RefContext.class));
 		verify(interp, times(2)).visitExprLiteral(any(ExprLiteralContext.class));
 		
 		// invoke entry point within current routine 
@@ -360,7 +388,7 @@ public class M4JInterpreter2Tests {
 		verify(interp).visitLine(any(LineContext.class));
 		verify(interp).visitCmd(any(CmdContext.class));
 		verify(interp).visitExprRef(any(ExprRefContext.class));
-		verify(interp).visitRefRoutine(any(RefRoutineContext.class));
+		verify(interp).visitRef(any(RefContext.class));
 		verify(interp).visitExprLiteral(any(ExprLiteralContext.class));
 
 	}
@@ -409,13 +437,15 @@ public class M4JInterpreter2Tests {
 	}
 
 
-	@Ignore
 	@Test
 	public void testPatternMatch() {
 		interp.evalLine("W \"FOO\"?1L");
+		verify(interp).visitExprMatch(any(ExprMatchContext.class));
 		assertEquals("0", proc.toString());
 		
+		reset(interp);
 		interp.evalLine("W \"123-12-1234\"?3N1\"-\"2N1\"-\"4N");
+		verify(interp).visitExprMatch(any(ExprMatchContext.class));
 		assertEquals("1", proc.toString());
 	}
 	
@@ -426,7 +456,10 @@ public class M4JInterpreter2Tests {
 		assertEquals("", proc.toString());
 		
 		// two un-indented lines should both run
+		reset(interp);
 		interp.evalLine("W 1\nW 2");
+		verify(interp).visitLines(any(LinesContext.class));
+		verify(interp, times(2)).visitLine(any(LineContext.class));
 		assertEquals("12", proc.toString());
 		
 		// no indent should run of course
@@ -434,8 +467,11 @@ public class M4JInterpreter2Tests {
 		assertEquals("1", proc.toString());
 		
 		// first line should run, not second line
+		reset(interp);
 		interp.evalLine("W 1\n. W 2");
 		assertEquals("1", proc.toString());
+		verify(interp).visitLines(any(LinesContext.class));
+		verify(interp, times(2)).visitLine(any(LineContext.class));
 	}
 	
 	@Test
@@ -443,6 +479,10 @@ public class M4JInterpreter2Tests {
 		
 		// multiple java methods mapped to $P, $PIECE, should pick one based on available params
 		interp.evalLine("W $P(\"FE FI FO FUM\",\" \",2, 3)");
+		verify(interp).visitLines(any(LinesContext.class));
+		verify(interp).visitLine(any(LineContext.class));
+		verify(interp).visitCmd(any(CmdContext.class));
+		verify(interp).visitExprFunc(any(ExprFuncContext.class));
 		assertEquals("FI FO", proc.toString());
 		
 		interp.evalLine("W $P(\"FE FI FO FUM\",\" \",2)");
@@ -468,6 +508,12 @@ public class M4JInterpreter2Tests {
 		interp.evalLine("W $O(FOO)");
 		assertEquals("", proc.toString());
 	}
+	@Test
+	public void testSysFunc$S() {
+		// TODO: Test $P target
+		// TODO: Test $E target
+		// TODO: Test any target
+	}
 	
 	@M4JRoutine(name="HELLO")
 	public static class MyFirstM4JRoutine {
@@ -481,8 +527,6 @@ public class M4JInterpreter2Tests {
 	@Test
 	public void testJavaRoutineInvoke() throws IOException {
 		runtime.registerRoutine(MyFirstM4JRoutine.class);
-		File f = new File("src/main/mumps/XLFSTR.int");
-		runtime.registerRoutine(new RoutineProxy.MInterpRoutineProxy(f));
 
 		interp.evalLine("W !,$$SAY^HELLO($$UP^XLFSTR(\"Brian\")),!");
 		assertEquals("\nHello: BRIAN\n", proc.toString());
@@ -490,30 +534,13 @@ public class M4JInterpreter2Tests {
 	
 	@Test
 	public void testLoadInvokeRoutine() throws IOException {
-		File f = new File("src/main/mumps/XLFSTR.int");
-		runtime.registerRoutine(new RoutineProxy.MInterpRoutineProxy(f));
-		
-		M4JProcess proc = new TestM4JProcess(runtime);
-		proc.getInterpreter().evalLine("S SAY=\"hello \",NAME=\"world\" W $$UP^XLFSTR(SAY_NAME)");
+		interp.evalLine("S SAY=\"hello \",NAME=\"world\" W $$UP^XLFSTR(SAY_NAME)");
 		
 		assertEquals("HELLO WORLD", proc.toString());
 	}
 
 
 	public void eval(String line) {
-		ANTLRInputStream input = new ANTLRInputStream(line);
-		MUMPS2Lexer lexer = new MUMPS2Lexer(input);
-		CommonTokenStream tokens = new CommonTokenStream(lexer);
-
-		this.parser.setInputStream(tokens);
-		LineContext ctx = this.parser.line();
-		if (this.parser.getNumberOfSyntaxErrors() > 0) {
-			throw new RuntimeException("Parse Errors: " + this.parser.getNumberOfSyntaxErrors());
-		}
-		
-		System.out.println("Evaluating LINE: " + line);
-		System.out.println("TREE: " + ctx.toStringTree(parser));
-		
-		interp.visit(ctx);
+		interp.evalLine(line);
 	}
 }
