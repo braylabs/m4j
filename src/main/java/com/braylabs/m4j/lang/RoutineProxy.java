@@ -25,11 +25,12 @@ import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
 import com.braylabs.m4j.lang.MUMPS2Parser.FileContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.LineContext;
+import com.braylabs.m4j.parser.MParserUtils;
 
 public interface RoutineProxy {
 	public String getName();
 	public Set<String> getEntryPointNames();
-	public String getRoutineLine(int idx) throws IOException;
+	public String getRoutineLine(String tag, int idx) throws IOException;
 	public URI getRoutineURI() throws IOException;
 	public Object call(String entrypoint, M4JProcess proc, Object... params) throws Exception;
 	
@@ -89,14 +90,31 @@ public interface RoutineProxy {
 		
 		
 		@Override
-		public String getRoutineLine(int idx) throws IOException {
-			LineNumberReader fr = new LineNumberReader(new FileReader(this.file));
-			String line = fr.readLine();
-			while (line != null && fr.getLineNumber() < idx) {
-				line = fr.readLine();
+		public String getRoutineLine(String tag, int idx) throws IOException {
+			int offset=-1;
+			try (LineNumberReader fr = new LineNumberReader(new FileReader(this.file))) {
+				String line = fr.readLine();
+				while (line != null) {
+					
+					if (offset == -1) {
+						String name = MParserUtils.parseRoutineName(line);
+						if (name != null && name.equals(tag)) {
+							// we are at the start of the desired line tag
+							offset = 0;
+						}
+					} else if (offset >= 0) {
+						// we have encountered our tag, increment our counter
+						offset++;
+					}
+					
+					if (offset >= idx) {
+						return line;
+					}
+					line = fr.readLine();
+				}
 			}
-			fr.close();
-			return line;
+			
+			return null;
 		}
 		
 	}
@@ -312,7 +330,7 @@ public interface RoutineProxy {
 		}
 
 		@Override
-		public String getRoutineLine(int idx) {
+		public String getRoutineLine(String tag, int idx) {
 			return null;
 		}
 		

@@ -300,6 +300,10 @@ public class MValTests {
 		v = valueOf("ABC123\n");
 		assertTrue(v.matches(0, 6, MatchOp.U, MatchOp.N));
 		assertFalse(v.matches(0, 7, MatchOp.U, MatchOp.N));
+		
+		v = valueOf("ABC1");
+		assertTrue(v.matches(0, 1, MatchOp.A));
+		assertTrue(v.matches(1, -1, MatchOp.A, MatchOp.N));
 	}
 	
 	private static Number testNum(Object a, Object b, MVal.BinaryOp op) {

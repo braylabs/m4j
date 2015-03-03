@@ -146,6 +146,9 @@ public class M4JRuntime implements Closeable{
 			indent.set(0);
 			specialVars.put(indent.getName(), indent);
 			
+			MVar lastGlobal = new TreeMVar("$M4JLASTGLOBAL"); 
+			specialVars.put(lastGlobal.getName(), lastGlobal);
+			
 			// every process has its own instance of the interpreter
 			this.interp = new MInterpreter(this);
 			this.interp2 = new M4JInterpreter2(this);

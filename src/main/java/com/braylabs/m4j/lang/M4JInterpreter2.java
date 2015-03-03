@@ -14,7 +14,6 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
-import org.antlr.v4.runtime.tree.TerminalNode;
 
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
@@ -27,10 +26,15 @@ import com.braylabs.m4j.lang.MUMPS2Parser.ExprContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprFormatContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprFuncContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprGroupContext;
-import com.braylabs.m4j.lang.MUMPS2Parser.ExprIndirContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.ExprIndrExprContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.ExprIndrRefContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.ExprIndrVarContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.ExprLineLabel2Context;
+import com.braylabs.m4j.lang.MUMPS2Parser.ExprLineLabelContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprLiteralContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprMatchContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprPatternItemContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.ExprRefContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprUnaryContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprVarContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.FileContext;
@@ -40,9 +44,11 @@ import com.braylabs.m4j.lang.MUMPS2Parser.LinesContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.LiteralContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.RefContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.VarContext;
+import com.braylabs.m4j.lang.MVal.BinaryOp;
 import com.braylabs.m4j.parser.MInterpreter.MFlowControl;
 import com.braylabs.m4j.parser.MInterpreter.QuitReturn;
 import com.braylabs.m4j.parser.MInterpreter.UnderlineErrorListener;
+import com.sun.org.apache.xml.internal.utils.UnImplNode;
 
 public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 	private M4JProcess proc;
@@ -71,7 +77,8 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		commands.putAll(new IfCMDHandler().getCollection());
 		commands.putAll(new QuitCMDHandler().getCollection());
 		commands.putAll(new NewCMDHandler().getCollection());
-
+		commands.putAll(new $TCMDHandler().getCollection());
+		commands.putAll(new $SCMDHandler().getCollection());
 	}
 	
 	@Override
@@ -163,6 +170,14 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 	public Object visitExprUnary(ExprUnaryContext ctx) {
 		MVal.UnaryOp op = MVal.UNARY_OPS.get(ctx.OPER().getText());
 		MVal val = MVal.valueOf(visit(ctx.expr()));
+		
+		// WRITE expression such as W !?10,"HI" will invoke UnaryExpr but ! is a Binary operator
+		// so this is a hack to get it to work.
+		if (op == null && ctx.OPER().getText().equals("!")) {
+			return MVal.valueOf("\n").apply(BinaryOp.CONCAT, val);
+		}
+		
+		
 		return val.apply(op);
 	}
 	
@@ -184,8 +199,6 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		return MVal.valueOf(literal.getText());
 	}
 
-	// translate format codes into ASCII
-	// TODO: doesn't handle combo's very well
 	@Override
 	public String visitExprFormat(ExprFormatContext ctx) {
 		StringBuffer sb = new StringBuffer();
@@ -221,14 +234,33 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 	}
 	
 	@Override
-	public MVar visitExprIndir(ExprIndirContext ctx) {
-		// resolve the var, then resolve it again
-		String name = ctx.indir().ID().getText();
-		MVar var = resolveVar(name, null);
-		var = resolveVar(var.valStr(), null);
-		return var;
+	public MVal visitExprIndrRef(ExprIndrRefContext ctx) {
+		// resolve args
+		MVal[] args = visitArgs(ctx.args());
+
+		// resolve ref, then resolve it as a var
+		Object ret = visitRef(ctx.ref());
+		MVar var = resolveVar(ret.toString(), args);
+		return MVal.valueOf(var);
 	}
 	
+	@Override
+	public MVal visitExprIndrVar(ExprIndrVarContext ctx) {
+		// resolve args
+		MVal[] args = visitArgs(ctx.args());
+		
+		// double resolve the variable
+		MVar var = visitVar(ctx.var());
+		var = resolveVar(var.valStr(), args);
+		return MVal.valueOf(var);
+	}
+	
+	@Override
+	public MVal visitExprIndrExpr(ExprIndrExprContext ctx) {
+		System.out.println("VISITEXPTRINDREXPR");
+		return null;
+	}
+		
 	@Override
 	public Object visitExprMatch(ExprMatchContext ctx) {
 		// first evaluate the left side into a string
@@ -238,7 +270,7 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		int offset = 0;
 		for (ExprPatternItemContext pat : ctx.exprPatternItem()) {
 			int repeat = (pat.PAT_INT() == null) ? 1 : Integer.parseInt(pat.PAT_INT().getText());
-			String codes = (pat.PAT_CODE() == null) ? null : pat.PAT_CODE().getText();
+			String codes = (pat.PAT_CODES() == null) ? null : pat.PAT_CODES().getText();
 			String literal = (pat.PAT_LITERAL() == null) ? null : pat.PAT_LITERAL().getText();
 
 			boolean match = false;
@@ -262,15 +294,14 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 	public Object visitFunc(FuncContext ctx) {
 		String name = ctx.name.getText();
 
-		// system functions live in the ^SYS routine
+		// system functions live in the ^SYS routine or in the list of commands
+		CMDHandler handler = commands.get("$" + name.toUpperCase());
 		RoutineProxy proxy = proc.getRoutine("$" + name + "^SYS");
-		if (proxy == null) {
+		if (handler != null) {
+			// let the handler handle it
+			return handler.handle(this, ctx);
+		} else if (proxy == null) {
 			throw new MUMPSInterpretError(ctx, "Unable to resolve: $" + name + " as a system function");
-		}
-		
-		// special handling of args for $SELECT, $CASE, $TEXT, etc.
-		if (Arrays.asList("S","SELECT","C","CASE","T","TEXT").contains(name)) {
-			// TODO: Implement this
 		}
 		
 		// resolve args (if any)
@@ -298,25 +329,24 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 	@Override
 	public MVar visitVar(VarContext ctx) {
 		// if flags starts with a ^ its a global, $ then its a special variable, otherwise its a local
+		// if name == null, then its a naked global reference
 		String flag = (ctx.flags == null) ? "" : ctx.flags.getText();
-		String name = ctx.ID().getText();
+		String name = (ctx.ID() == null) ? null : ctx.ID().getText();
 		
-		// if its a subscripted global/var, resolve that as well
-		String[] args = null;
-		if (ctx.args() != null) {
-			args = new String[ctx.args().children.size()];
-			for (int i=0; i < ctx.args().children.size(); i++) {
-				// get/resolve the argument
-				MVal obj = MVal.valueOf(visit(ctx.args().children.get(i)));
-				args[i] = obj.toString();
-			}
+		// track or use the last used global (for naked global reference)
+		if (flag.equals("^") && name != null) {
+			proc.getSpecialVar("$M4JLASTGLOBAL").set(name);
+		} else if (flag.equals("^") && name == null) {
+			name = proc.getSpecialVar("$M4JLASTGLOBAL").valStr();
 		}
 		
+		// if its a subscripted global/var, resolve that as well
+		MVal[] args = visitArgs(ctx.args());
 		return resolveVar(flag + name, args);
 	}
 	
 	/** Helper function to resolve variables */
-	public MVar resolveVar(String name, String[] args) {
+	public MVar resolveVar(String name, MVal[] args) {
 		MVar ret = null;
 		if (name.startsWith("^")) {
 			ret = proc.getGlobal(name);
@@ -325,8 +355,10 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		}
 		
 		// if its a subscripted global/var, resolve that as well
-		if (args != null && args.length > 0) {
-			ret = ret.get(args);
+		if (args != null) {
+			for (MVal arg : args) {
+				ret = ret.get(arg.toString());
+			}
 		}
 		return ret;
 	}
@@ -363,23 +395,17 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		}
 	}
 	
-	/*
 	@Override
-	public Object visitArg(ArgContext ctx) {
-		// strip the "'s off string literals
-		if (ctx.STR_LITERAL() != null) {
-			String ret = ctx.STR_LITERAL().getText();
-			return ret.substring(1, ret.length()-1);
-		} else if (ctx.NUM_LITERAL() != null) {
-			return Integer.parseInt(ctx.NUM_LITERAL().getText());
-		} else if (ctx.ref() != null) {
-			return visitRef(ctx.ref());
-		} else if (ctx.expr() != null) {
-			return visitExpr(ctx.expr().get(0));
+	public MVal[] visitArgs(ArgsContext ctx) {
+		if (ctx == null) return null;
+		
+		MVal[] ret = new MVal[ctx.expr().size()];
+		for (int i=0; i < ctx.expr().size(); i++) {
+			ret[i] = MVal.valueOf(visit(ctx.expr(i)));
 		}
-		throw new IllegalArgumentException("Unknown/unimplemented argument structure.");
+		
+		return ret;
 	}
-	*/
 	
 	// Evaluate methods -------------------------------------------------------
 	
@@ -437,9 +463,18 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		}
 		return MFlowControl.ERROR;
 	}
-	public void handleError(MUMPSInterpretError err) {
+	
+	protected void handleError(MUMPSInterpretError err) {
 		// TODO: Implement this
 		throw err;
+	}
+	
+	protected void throwError(ParserRuleContext ctx, String msg) {
+		throw new MUMPSInterpretError(ctx, msg);
+	}
+	
+	protected void throwError(ParserRuleContext ctx, String msg, Throwable t) {
+		throw new MUMPSInterpretError(ctx, msg, t, false);
 	}
 
 	public Object evalRoutine(FileContext filectx, String entrypoint, Object... args) {
@@ -545,6 +580,9 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 				ret.put(name.toUpperCase(), this);
 			}
 			return ret;
+		}
+		public Object handle(M4JInterpreter2 interp, FuncContext ctx) {
+			throw new UnsupportedOperationException("Function not implemented");
 		}
 		public abstract Object handle(M4JInterpreter2 interp, CmdContext ctx);
 	}
@@ -732,11 +770,7 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 				Object obj = interp.visit(expr);
 				if (obj == null) continue;
 				
-				// TODO: handle !!
-				// TODO: Handle ?45 for indenting to position 45.
-				if (obj.equals("!")) {
-					interp.proc.getOutputStream().println();
-				} else if (obj instanceof MVar) {
+				if (obj instanceof MVar) {
 					interp.proc.getOutputStream().print(((MVar) obj).valStr());
 				} else {
 					interp.proc.getOutputStream().print(obj);
@@ -790,7 +824,98 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 			interp.proc.push(false, vars.toArray(new String[]{}));
 			return null;
 		}
+	}
+	
+	public static class $TCMDHandler extends CMDHandler {
 		
+		public $TCMDHandler() {
+			super("$T", "$TEXT");
+		}
+		
+		@Override
+		public Object handle(M4JInterpreter2 interp, FuncContext ctx) {
+			// inspect the arguments instead of evaluating them
+			
+			// only expect one expr of type ExprLineLabel
+			if (ctx.args() == null || ctx.args().expr().size() != 1) {
+				interp.throwError(ctx, "<SYNTAX> Unknown sytax of $TEXT");
+			}
+
+			// there are several structures that could appear in the arguments
+			String tag = null, routine = null;
+			int offset = 0;
+			ExprContext expr = ctx.args().expr(0);
+			if (expr instanceof ExprLineLabelContext) {
+				// "TAG+N^ROUTINE" style
+				ExprLineLabelContext label = (ExprLineLabelContext) ctx.args().expr(0);
+				tag = (label.tag == null) ? null : label.tag.getText();
+				routine = (label.routine == null) ? null : label.routine.getText();
+				offset = (label.n == null) ? 0 : Integer.parseInt(label.n.getText());
+			} else if (expr instanceof ExprRefContext) {
+				// "TAG^ROUTINE" style
+				RefContext ref = ((ExprRefContext) expr).ref(); 
+				tag = ref.ep.getText();
+				routine = ref.routine.getText();
+			} else if (expr instanceof ExprLineLabel2Context) {
+				ExprLineLabel2Context lineexpr = (ExprLineLabel2Context) expr;
+				tag = lineexpr.tag.getText();
+				routine = (lineexpr.routine == null) ? null : lineexpr.routine.getText();
+				offset = MVal.valueOf(interp.visit(lineexpr.expr())).toNumber().intValue();
+			}
+			
+			RoutineProxy proxy = interp.proc.getRoutine(routine);
+			String line = null;
+			try {
+				line = proxy.getRoutineLine(tag, offset);
+			} catch (IOException e) {
+				interp.throwError(ctx, "Error while looking up source line", e);
+			}
+			
+			return line;
+		}
+
+		@Override
+		public Object handle(M4JInterpreter2 interp, CmdContext ctx) {
+			return null;
+		}
+	}
+	
+	public static class $SCMDHandler extends CMDHandler {
+		public $SCMDHandler() {
+			super("$S", "$SELECT");
+		}
+		
+		@Override
+		public Object handle(M4JInterpreter2 interp, FuncContext ctx) {
+			ArgsContext args = ctx.args();
+			for (int i=0; i < args.children.size(); i++) {
+				// expects expr:val combos separated by commas
+				MVal expr = MVal.valueOf(interp.visit(args.getChild(i)));
+				String delim = args.getChild(++i).getText();
+				if (!delim.equals(":")) {
+					interp.throwError(ctx, "<SYNTAX> Unrecognized format of $SELECT function");
+				} else if (expr.isTruthy()) {
+					// this is our match, evaluate the next token as the value
+					return MVal.valueOf(interp.visit(args.getChild(++i)));
+				} else {
+					// ignore the next value (indicates lazy evaluation)
+					i++;
+				}
+				
+				// if next token is a comma, consume it and keep going
+				if (++i < args.children.size()) {
+					delim = args.getChild(i).getText();
+				}
+			}
+			
+			return super.handle(interp, ctx);
+		}
+
+		@Override
+		public Object handle(M4JInterpreter2 interp, CmdContext ctx) {
+			// TODO Auto-generated method stub
+			return null;
+		}
 	}
 	
 
