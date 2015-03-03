@@ -125,22 +125,6 @@ public class M4JInterpreter2Tests {
 		// several expressions the parser has choked on before
 		eval("S JSON(.5)=10 W JSON(.5)");
 		assertEquals("10", proc.toString());
-		
-		
-		// fractional number subtleties
-		reset(interp);
-		eval("W -.44");
-		verify(interp).visitLine(any(LineContext.class));
-		verify(interp).visitCmd(any(CmdContext.class));
-		verify(interp).visitExprUnary(any(ExprUnaryContext.class));
-		assertEquals("-.44", proc.toString());
-		
-		eval("W -0.44");
-		verify(interp).visitLine(any(LineContext.class));
-		verify(interp).visitCmd(any(CmdContext.class));
-		verify(interp).visitExprUnary(any(ExprUnaryContext.class));
-		assertEquals("-.44", proc.toString());
-
 	}
 
 	@Test
@@ -319,13 +303,6 @@ public class M4JInterpreter2Tests {
 		verify(interp).visitExprIndrVar(any(ExprIndrVarContext.class));
 		verify(interp, times(3)).resolveVar(any(String.class), any(MVal[].class));
 		assertEquals("11", proc.toString());
-
-		// expression
-		eval("D @(ROUTINE_\"(.HTTPRSP,.HTTPARGS)\")");
-		verify(interp).visitLine(any(LineContext.class));
-		verify(interp).visitCmd(any(CmdContext.class));
-		verify(interp).visitExprIndrExpr(any(ExprIndrExprContext.class));
-		
 	}
 	
 	@Test
@@ -411,7 +388,6 @@ public class M4JInterpreter2Tests {
 	
 	@Test
 	public void testCMDGo() {
-		eval("G F1:%G=1,F2:%G=2,F3:%G=3,F1");
 	}
 	
 	@Test
@@ -580,7 +556,7 @@ public class M4JInterpreter2Tests {
 	}
 	
 	@Test
-	public void testInvokeSystemFunctions() {
+	public void test$PIECE() {
 		
 		// multiple java methods mapped to $P, $PIECE, should pick one based on available params
 		interp.evalLine("W $P(\"FE FI FO FUM\",\" \",2, 3)");
@@ -598,7 +574,7 @@ public class M4JInterpreter2Tests {
 	}
 	
 	@Test
-	public void testInvokeSystemFunctions$O() {
+	public void test$ORDER() {
 		// some functions take variables and examine globals, etc
 		MVar var = proc.getLocal("FOO");
 		var.get("A").set(1);
@@ -653,15 +629,45 @@ public class M4JInterpreter2Tests {
 		} catch (Exception ex) {
 			// expected
 		}
+	}
+	
+	@Test
+	public void testRemainingLexerParserIssues() {
+		// command syntax/indirection parse errors
+		eval("S (CLTNS,FIELDS)=0");
+		eval("G F1:%G=1,F2:%G=2,F3:%G=3,F1");
+		eval("W $T(@TAG+I^@RTN)");
+		// TODO: empty params: D QINDEX^VPRJPQ(VPRJTPID,"med-ingredient-name","METFOR*",,,"uid")
+		// TODO: VPRJT.int: Line tags can start with digits!?!
+		eval("D @(ROUTINE_\"(.HTTPRSP,.HTTPARGS)\")");
+		verify(interp).visitLine(any(LineContext.class));
+		verify(interp).visitCmd(any(CmdContext.class));
+		verify(interp).visitExprIndrExpr(any(ExprIndrExprContext.class));
+	}
+	
+	@Test
+	public void testKnownInterpreterIssues() {
+		// fractional number subtleties
+		eval("W -.44");
+		verify(interp).visitLine(any(LineContext.class));
+		verify(interp).visitCmd(any(CmdContext.class));
+		verify(interp).visitExprUnary(any(ExprUnaryContext.class));
+		assertEquals("-.44", proc.toString());
+		
+		eval("W -0.44");
+		verify(interp).visitLine(any(LineContext.class));
+		verify(interp).visitCmd(any(CmdContext.class));
+		verify(interp).visitExprUnary(any(ExprUnaryContext.class));
+		assertEquals("-.44", proc.toString());
 
+		
+		// should be error
 		try {
 			eval("W ^ZZZ");
 			fail("exception expected");
 		} catch (Exception ex) {
 			// expected
 		}
-		
-		
 	}
 	
 	@Test
