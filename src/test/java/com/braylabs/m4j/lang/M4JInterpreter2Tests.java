@@ -14,8 +14,8 @@ import java.io.IOException;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.lang.M4JInterpreter2;
@@ -23,8 +23,6 @@ import com.braylabs.m4j.lang.M4JRuntime;
 import com.braylabs.m4j.lang.M4JRuntime.M4JProcess;
 import com.braylabs.m4j.lang.MUMPS2Lexer;
 import com.braylabs.m4j.lang.MUMPS2Parser;
-import com.braylabs.m4j.lang.MUMPS2Parser.ArgsContext;
-import com.braylabs.m4j.lang.MUMPS2Parser.CmdArgContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.CmdContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.CmdPostCondContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.EntryPointContext;
@@ -217,6 +215,34 @@ public class M4JInterpreter2Tests {
 		eval("W .FOO");
 		eval("W .FOO(1,2,3)");
 	}
+	
+	@Test
+	public void testCMDDoRoutine() {
+		// this DO should run, but not actually return anything
+		eval("D UP^XLFSTR(\"fOO\")");
+		assertEquals("", proc.toString());
+		
+		// DO command
+		ArgumentCaptor<CmdContext> argument = ArgumentCaptor.forClass(CmdContext.class);
+		verify(interp).visitCmd(argument.capture());
+		assertEquals("D", argument.getValue().ID().getText());
+
+		// QINDEX^VPRJPQ call
+		ArgumentCaptor<RefContext> ref = ArgumentCaptor.forClass(RefContext.class);
+		verify(interp).visitRef(ref.capture());
+		assertEquals("XLFSTR", ref.getValue().routine.getText());
+		assertEquals("UP", ref.getValue().ep.getText());
+		
+		// TODO: refs can skip some arguments
+		eval("D QINDEX^VPRJPQ(VPRJTPID,\"med-ingredient-name\",\"METFOR*\",,,\"uid\")");
+		
+		// TODO: how to test shortcut definition (jump to tag in current routine)
+	}
+	
+	@Test
+	public void testCMDDoLoop() {
+		// do as a loop
+	}
 
 	@Test
 	public void testOpPrecendence() {
@@ -303,24 +329,33 @@ public class M4JInterpreter2Tests {
 		verify(interp).visitExprIndrVar(any(ExprIndrVarContext.class));
 		verify(interp, times(3)).resolveVar(any(String.class), any(MVal[].class));
 		assertEquals("11", proc.toString());
+		
+		// found issue
+		eval("S X=\"FOO\",FOO=\"X\" W @X");
+		assertEquals("X", proc.toString());
 	}
 	
 	@Test
 	public void testPostConditional() {
 		// expression evaluates
 		eval("W:1 1+2");
+		assertEquals("3", proc.toString());
 		
 		verify(interp).visitLine(any(LineContext.class));
-		verify(interp).visitCmdPostCond(any(CmdPostCondContext.class));
+		verify(interp).visitCmd(any(CmdContext.class));
 		verify(interp, times(3)).visitExprLiteral(any(ExprLiteralContext.class));
 
 		// expression never evaluates
-		reset(interp);
 		eval("W:0 1+2");
+		assertEquals("", proc.toString());
 		
 		verify(interp).visitLine(any(LineContext.class));
-		verify(interp).visitCmdPostCond(any(CmdPostCondContext.class));
+		verify(interp).visitCmd(any(CmdContext.class));
 		verify(interp).visitExprLiteral(any(ExprLiteralContext.class));
+		
+		// multiple post conditional expressions
+		eval("W:(1) 100");
+		assertEquals("100", proc.toString());
 
 	}
 	
@@ -387,7 +422,29 @@ public class M4JInterpreter2Tests {
 	}
 	
 	@Test
+	public void testCMDFor() {
+		eval("F I=0:1 W I Q:I=5");
+		assertEquals("012345", proc.toString());
+
+		eval("F I=0:1:10 W I");
+		assertEquals("012345678910", proc.toString());
+	}
+	
+	@Test
 	public void testCMDGo() {
+		// TODO: Implement me
+	}
+	
+	@Test
+	public void testCMDQuit() {
+		// having problems with this:
+		// should not evaluate the variable
+		eval("S I=5 Q:I>5");
+		assertEquals("", proc.toString());
+		
+		ArgumentCaptor<CmdContext> argument = ArgumentCaptor.forClass(CmdContext.class);
+		verify(interp, times(2)).visitCmd(argument.capture());
+		assertEquals("Q", argument.getValue().ID().getText());
 	}
 	
 	@Test
@@ -418,59 +475,52 @@ public class M4JInterpreter2Tests {
 
 	
 	@Test
-	public void testCMDS() {
-		// TODO: Test $P target
-		// TODO: Test $E target
-		// TODO: Test any target
-	}
-
-	@Test
-	public void testCallRoutineNoArgs() {
-		// GO/DO style routine call
-		eval("D UP^XLFSTR");
+	public void testCMDSet() {
+		// $P and $E can be target of SET command
+		eval("S FOO=\"A,B,C\",$P(FOO,\",\", 2)=\"X\" W FOO");
+		assertEquals("A,X,C", proc.toString());
 		
-		verify(interp).visitLine(any(LineContext.class));
-		verify(interp).visitCmd(any(CmdContext.class));
-//		verify(interp).visitExprRef(any(ExprRefContext.class));
-//		verify(interp).visitRefRoutine(any(RefRoutineContext.class));
-
-		// immediate execution style routine call
-		reset(interp);
-		eval("W $$UP^XLFSTR(\"foo\")");
-		verify(interp).visitLine(any(LineContext.class));
-		verify(interp).visitCmd(any(CmdContext.class));
-		verify(interp).visitExprRef(any(ExprRefContext.class));
-		verify(interp).visitRef(any(RefContext.class));
+		eval("S FOO=\"ABC\",$E(FOO,2)=\"X\" W FOO");
+		assertEquals("AXC", proc.toString());
 		
-		// invoke entry point within current routine 
-		reset(interp);
-		eval("W $$UP");
-		verify(interp).visitLine(any(LineContext.class));
-		verify(interp).visitCmd(any(CmdContext.class));
-		verify(interp).visitExprRef(any(ExprRefContext.class));
-		verify(interp).visitRef(any(RefContext.class));
+		// set several vars at once
+		eval("S (A,B,C)=1 W A,B,C");
+		assertEquals("111", proc.toString());
+		
+		// combo of two styles
+		eval("S FOO=\"A,B,C\",(A,B,$P(FOO,\",\",1))=1 W FOO");
+		assertEquals("1,B,C", proc.toString());
+
+		// longer forms of $P,$E
+		eval("S FOO=\"ABC\",$E(FOO,2,3)=\"XX\" W FOO");
+		assertEquals("AXX", proc.toString());
+
+		eval("S FOO=\"A,B,C\",$P(FOO,\",\",2,3)=\"X\" W FOO");
+		assertEquals("A,X", proc.toString());
+		
+
+		// TODO: Test/trace setting global vs local
+		// TODO: Test/implement setting special vars works sometimes, fails other times
 	}
 	
 	@Test
-	public void testCallRoutineWithArgs() {
-
-		// immediate execution style routine call
-		eval("W $$UP^XLFSTR(\"foo\")");
-		verify(interp).visitLine(any(LineContext.class));
-		verify(interp).visitCmd(any(CmdContext.class));
-		verify(interp).visitExprRef(any(ExprRefContext.class));
-		verify(interp).visitRef(any(RefContext.class));
-		verify(interp, times(2)).visitExprLiteral(any(ExprLiteralContext.class));
-		assertEquals("FOO", proc.toString());
+	public void testCMDHang() {
+		long start = System.currentTimeMillis();
+		eval("H 1,1,1");
+		assertEquals(3000, System.currentTimeMillis()-start, 300);
 		
-		// invoke entry point within current routine 
-		eval("W $$UP(1)");
-		verify(interp).visitLine(any(LineContext.class));
-		verify(interp).visitCmd(any(CmdContext.class));
-		verify(interp).visitExprRef(any(ExprRefContext.class));
-		verify(interp).visitRef(any(RefContext.class));
-		verify(interp).visitExprLiteral(any(ExprLiteralContext.class));
-
+		// does nothing
+		start = System.currentTimeMillis();
+		eval("H 0");
+		assertEquals(0, System.currentTimeMillis()-start, 300);
+		
+		// expressions are valid
+		eval("H 1+1");
+		
+		// fractions are ok
+		start = System.currentTimeMillis();
+		eval("H .1");
+		assertEquals(100, System.currentTimeMillis()-start, 10);
 	}
 	
 	@Test
@@ -634,10 +684,8 @@ public class M4JInterpreter2Tests {
 	@Test
 	public void testRemainingLexerParserIssues() {
 		// command syntax/indirection parse errors
-		eval("S (CLTNS,FIELDS)=0");
 		eval("G F1:%G=1,F2:%G=2,F3:%G=3,F1");
 		eval("W $T(@TAG+I^@RTN)");
-		// TODO: empty params: D QINDEX^VPRJPQ(VPRJTPID,"med-ingredient-name","METFOR*",,,"uid")
 		// TODO: VPRJT.int: Line tags can start with digits!?!
 		eval("D @(ROUTINE_\"(.HTTPRSP,.HTTPARGS)\")");
 		verify(interp).visitLine(any(LineContext.class));

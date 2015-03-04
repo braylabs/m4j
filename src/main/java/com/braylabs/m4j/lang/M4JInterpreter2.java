@@ -31,6 +31,7 @@ import com.braylabs.m4j.lang.MUMPS2Parser.ExprIndrRefContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprIndrVarContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprLineLabel2Context;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprLineLabelContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.ExprListContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprLiteralContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprMatchContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprPatternItemContext;
@@ -79,6 +80,9 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		commands.putAll(new NewCMDHandler().getCollection());
 		commands.putAll(new $TCMDHandler().getCollection());
 		commands.putAll(new $SCMDHandler().getCollection());
+		commands.putAll(new ForCMDHandler().getCollection());
+		commands.putAll(new HaltHangCMDHandler().getCollection());
+		
 	}
 	
 	@Override
@@ -105,12 +109,42 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 			visitEntryPoint(ctx.entryPoint());
 		}
 
-		// if there are no commands skip it
-		if (ctx.cmd().isEmpty()) return null;
+		// otherwise process command list and return the value of last command executed
+		return processCmds(ctx.cmd());
+	}
 
-		// otherwise process command list
+	@Override
+	public Object visitCmd(CmdContext ctx) {
+		// ensure that this command is defined/implemented
+		String name = ctx.ID().getText().toUpperCase();
+		
+		// if there is a PCE, evaluate it.  Skip the command execution if its false.
+		CmdPostCondContext pce = ctx.cmdPostCond();
+		if (pce != null) {
+			MVal ret = MVal.valueOf(visit(pce.expr()));
+			if (ret != null && !ret.isTruthy()) {
+				// cancel
+				return null;
+			}
+		}
+		
+		CMDHandler cmd = commands.get(name);
+		if (cmd == null) {
+			throw new MUMPSInterpretError(ctx, "Command not implemented: " + name);
+		}
+		
+		try {
+			return cmd.handle(this, ctx);
+		} catch (Throwable t) {
+			throw throwError(ctx, "Error processing command: " + name, t, true);
+		}
+	}
+	
+	/* Consolidated logic for processing and aborting a list of commands */
+	private Object processCmds(List<CmdContext> cmds) {
+		if (cmds == null) return null;
 		Object ret = null;
-		for (CmdContext cmd : ctx.cmd()) {
+		for (CmdContext cmd : cmds) {
 			ret = visitCmd(cmd);
 			
 			if (ret == null) {
@@ -123,35 +157,7 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 				break;
 			}
 		}
-
-		// return the value of the last command executed
 		return ret;
-	}
-
-	//--------------------------------------	
-	
-	@Override
-	public Object visitCmd(CmdContext ctx) {
-		// ensure that this command is defined/implemented
-		String name = ctx.ID().getText().toUpperCase();
-		
-		// if there is a PCE, evaluate it.  Skip the command execution if its false.
-		CmdPostCondContext pce = ctx.cmdPostCond();
-		if (pce != null) {
-			MVal ret = (MVal) visit(pce);
-			if (ret != null && !ret.isTruthy()) {
-				// cancel
-				return null;
-			}
-		}
-		
-		CMDHandler cmd = commands.get(name);
-		if (cmd == null) {
-			throw new MUMPSInterpretError(ctx, "Command not implemented: " + name);
-		}
-		
-		// TODO: Appropriate place for a try/catch wrapper/error?
-		return cmd.handle(this, ctx);
 	}
 	
 	@Override
@@ -231,6 +237,11 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 	@Override
 	public MVar visitExprVar(ExprVarContext ctx) {
 		return visitVar(ctx.var());
+	}
+	
+	@Override
+	public Object visitExprRef(ExprRefContext ctx) {
+		return visitRef(ctx.ref());
 	}
 	
 	@Override
@@ -371,7 +382,7 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 			
 		RoutineProxy proxy = proc.getRoutine(routine);
 		if (proxy == null) {
-			throw new IllegalArgumentException("Routine is undefined: " + routine);
+			throw new MUMPSInterpretError(ctx, "Routine is undefined: " + routine);
 		}
 			
 		// track currently executing routine as special var for now
@@ -469,14 +480,21 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		throw err;
 	}
 	
-	protected void throwError(ParserRuleContext ctx, String msg) {
-		throw new MUMPSInterpretError(ctx, msg);
+	protected MUMPSInterpretError throwError(ParserRuleContext ctx, String msg) {
+		MUMPSInterpretError ret = new MUMPSInterpretError(ctx, msg);
+		throw ret;
 	}
 	
-	protected void throwError(ParserRuleContext ctx, String msg, Throwable t) {
-		throw new MUMPSInterpretError(ctx, msg, t, false);
+	protected MUMPSInterpretError throwError(ParserRuleContext ctx, String msg, Throwable t) {
+		MUMPSInterpretError ret = new MUMPSInterpretError(ctx, msg, t, false);
+		throw ret;
 	}
 
+	protected MUMPSInterpretError throwError(ParserRuleContext ctx, String msg, Throwable t, boolean suppress) {
+		MUMPSInterpretError ret = new MUMPSInterpretError(ctx, msg, t, suppress);
+		throw ret;
+	}
+	
 	public Object evalRoutine(FileContext filectx, String entrypoint, Object... args) {
 		Object ret = null;
 
@@ -510,15 +528,12 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 				}
 				
 				// if there is an associated command list, its likely a single line entrypoint, execute them
-//				if (line.cmdList() != null) {
-//					ret = visitCmdList(rlc.cmdList());
-//				}
+				ret = processCmds(line.cmd());
 			}
 			
 			// if the result is a quit, then return its return value and stop processing any further lines
 			if (ret instanceof QuitReturn) {
 				ret = ((QuitReturn) ret).getValue();
-				
 				// TODO: pop the stack vars as we are exiting the routine here
 				break;
 			}
@@ -604,9 +619,8 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		/**
 		 * CMD_S delegates to this, for reuse
 		 * TODO: does not support the SET $E(X,*+n)="X" syntax
-		 * TODO: does not support optional params of $P
 		 */
-		private Object CMD_S(M4JInterpreter2 interp, ExprContext expr) {
+		private static Object CMD_S(M4JInterpreter2 interp, ExprContext expr) {
 			// LHS of set can be 1) reference to local or global, 2) paren list of multiple values, 3) $P() function
 			ParseTree lhs = expr.getChild(0);
 			ParseTree oper = expr.getChild(1); // should be equals operator
@@ -614,79 +628,71 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 			MVal val = (MVal) interp.visit(rhs);
 			
 			if (!oper.getText().equals("=")) {
-				throw new IllegalArgumentException();
-//				throw new MUMPSInterpretError(expr, "Expected a '=' operator for the SET command.");
+				interp.throwError(expr, "Expected a '=' operator for the SET command.");
+				return null;
 			}
 			
-			// regular variable tager
+			// regular variable target
 			if (lhs instanceof ExprVarContext) {
-				Object var = interp.visitVar(((ExprVarContext) lhs).var());
-				if (var instanceof MVar) {
-					((MVar) var).set(val.getOrigVal());
-					return var;
+				MVar var = interp.visitVar(((ExprVarContext) lhs).var());
+				var.set(val.getOrigVal());
+				return var;
+			}
+			
+			// variable list target S (A,B,C)=1
+			// TODO: Refactor this? it seems a little redundant
+			if (lhs instanceof ExprListContext) {
+				for (ExprContext var : ((ExprListContext) lhs).expr()) {
+					if (var instanceof ExprVarContext) {
+						MVar ret = interp.visitVar(((ExprVarContext) var).var());
+						ret.set(val.getOrigVal());
+					} else if (var instanceof ExprFuncContext) {
+						handleSetFunc(interp, ((ExprFuncContext) var).func(), val);			
+					} else {
+						// invalid, break loop causes error
+						throw interp.throwError((ParserRuleContext) lhs, "Unknown target for SET list command");
+					}
 				}
+				// success, return
+				return null;
 			}
 			
 			// if the set command target is $E or $P
 			if (lhs instanceof ExprFuncContext) {
-				FuncContext funcctx = ((ExprFuncContext) lhs).func();
-				String name = funcctx.name.getText().toUpperCase();
-				
-				if (name.equals("E") || name.equals("EXTRACT")) {
-					MVar var = (MVar) interp.visit(funcctx.args().expr(0));
-					MVal arg1 = MVal.valueOf(interp.visit(funcctx.args().expr(1)));
-					MVal arg2 = (funcctx.args().expr().size() >= 3) ? MVal.valueOf(interp.visit(funcctx.args().expr(2))) : arg1;
-					
-					// replace the string with the new value
-					StringBuffer sb = new StringBuffer(var.valStr());
-					sb.replace(arg1.toNumber().intValue()-1, arg2.toNumber().intValue(), val.toString());
-					
-					// update the variable and return
-					var.set(sb.toString());
-					return var;
-				} else if (name.equals("P") || name.equals("PIECE") && funcctx.args().expr(0) instanceof ExprVarContext) {
-					// bypass executing the function, and get the args
-					VarContext varctx = ((ExprVarContext) funcctx.args().expr(0)).var();
-					MVar var = interp.resolveVar(varctx.ID().getText(), null);
-					String delim = MVal.valueOf(interp.visit(funcctx.args().expr(1))).toString();
-					Number from = (funcctx.args().expr().size() >= 3) ? MVal.valueOf(interp.visit(funcctx.args().expr(2))).toNumber() : 1;
-
-					// do the string replacement, update the value and return
-					var.set(MUMPS.$PIECE(var.valStr(), delim, from.intValue(), val.toString()));
-					return var;
-
-				}
-				
-				/*
-				if (ref.refFlags() != null && ref.refFlags().getText().equals("$") && 
-						ref.ID(0).getText().toUpperCase().startsWith("E")) {
-					// bypass function execution, just get the args
-					MVar var = (MVar) interp.visitArg(ref.args(0).arg(0));
-					MVal arg1 = MVal.valueOf(interp.visitArg(ref.args(0).arg(1)));
-					MVal arg2 = (ref.args(0).arg().size() >= 3) ? MVal.valueOf(interp.visitArg(ref.args(0).arg(2))) : arg1;
-					
-					// replace the string with the new value
-					StringBuffer sb = new StringBuffer(var.valStr());
-					sb.replace(arg1.toNumber().intValue()-1, arg2.toNumber().intValue(), val.toString());
-					
-					// update the variable and return
-					var.set(sb.toString());
-					return var;
-				} else if (ref.refFlags() != null && ref.refFlags().getText().equals("$") &&
-						ref.ID(0).getText().toUpperCase().startsWith("P")) {
-					// bypass executing the function, and get the args
-					MVar var = (MVar) interp.visitArg(ref.args(0).arg(0));
-					String delim = MVal.valueOf(interp.visitArg(ref.args(0).arg(1))).toString();
-					Number from = (ref.args(0).arg().size() >= 3) ? MVal.valueOf(interp.visitArg(ref.args(0).arg(2))).toNumber() : 1;
-
-					// do the string replacement, update the value and return
-					var.set(MUMPS.$PIECE(var.valStr(), delim, from.intValue(), val.toString()));
-					return var;
-				}
-				*/
+				return handleSetFunc(interp, ((ExprFuncContext) lhs).func(), val);			
 			}
-			throw new IllegalArgumentException();
-//			throw new MUMPSInterpretError((ParserRuleContext) lhs, "Unknown target for SET command");
+			
+			throw interp.throwError((ParserRuleContext) lhs, "Unknown target for SET command");
+		}
+		
+		/** delegates to handling the $P and $E set syntax */
+		private static MVar handleSetFunc(M4JInterpreter2 interp, FuncContext funcctx, MVal val) {
+			String name = funcctx.name.getText().toUpperCase();
+			
+			if (name.equals("E") || name.equals("EXTRACT")) {
+				MVar var = (MVar) interp.visit(funcctx.args().expr(0));
+				MVal arg1 = MVal.valueOf(interp.visit(funcctx.args().expr(1)));
+				MVal arg2 = (funcctx.args().expr().size() >= 3) ? MVal.valueOf(interp.visit(funcctx.args().expr(2))) : arg1;
+				
+				// replace the string with the new value
+				StringBuffer sb = new StringBuffer(var.valStr());
+				sb.replace(arg1.toNumber().intValue()-1, arg2.toNumber().intValue(), val.toString());
+				
+				// update the variable and return
+				var.set(sb.toString());
+				return var;
+			} else if (name.equals("P") || name.equals("PIECE") && funcctx.args().expr(0) instanceof ExprVarContext) {
+				// bypass executing the function, and get the args
+				VarContext varctx = ((ExprVarContext) funcctx.args().expr(0)).var();
+				MVar var = interp.resolveVar(varctx.ID().getText(), null);
+				String delim = MVal.valueOf(interp.visit(funcctx.args().expr(1))).toString();
+				Number from = (funcctx.args().expr().size() >= 3) ? MVal.valueOf(interp.visit(funcctx.args().expr(2))).toNumber() : 1;
+
+				// do the string replacement, update the value and return
+				var.set(MUMPS.$PIECE(var.valStr(), delim, from.intValue(), val.toString()));
+				return var;
+			}
+			throw interp.throwError(funcctx, "Unrecognized function target for SET command: " + name);
 		}
 
 	}
@@ -718,8 +724,24 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 
 		@Override
 		public Object handle(M4JInterpreter2 interp, CmdContext ctx) {
+			// if we have parameters, then its an invoke routine style of do
+			if (ctx.expr() != null) {
+				Object ret = null;
+				for (ExprContext expr : ctx.expr()) {
+					ret = interp.visit(expr);
+					// TODO: evaluate an optional postconditional
+				}
+				
+				return ret;
+			}
+			
 			Object lineOrFileCtx = ctx.getParent().getParent();
 			int curLine = ctx.getStart().getLine();
+			
+			
+			
+			
+			
 			if (lineOrFileCtx == null || !(lineOrFileCtx instanceof FileContext)) return null; // from test cases/console?
 			
 			// use a special variable for now to track desired execution indent level
@@ -791,7 +813,7 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		public Object handle(M4JInterpreter2 interp, CmdContext ctx) {
 			// return the value of the first expression
 			Object ret = null;
-			if (ctx.expr() != null) {
+			if (!ctx.expr().isEmpty()) {
 				ret = interp.visit(ctx.expr(0));
 				
 				// wrap return value in marker class
@@ -918,5 +940,108 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		}
 	}
 	
+	public static class HaltHangCMDHandler extends CMDHandler {
+		public HaltHangCMDHandler() {
+			super("H","HALT","HANG");
+		}
+		
+		@Override
+		public Object handle(M4JInterpreter2 interp, CmdContext ctx) {
+			// resolve the ambigious command
+			String cmdname = ctx.ID().getText().toUpperCase();
+			
+			// HALT or H w/o any arguments is a HALT
+			if (cmdname.equals("HALT")) {
+				return MFlowControl.HALT;
+			} else if (cmdname.equals("H") && ctx.expr() == null) {
+				return MFlowControl.HALT;
+			}
+			
+			// it should be a HANG now, with 1+ second durations
+			for (ExprContext expr : ctx.expr()) {
+				MVal val = MVal.valueOf(interp.visit(expr));
+				float sleepSecs = ((MVal) val).toNumber().floatValue();
+				hang(sleepSecs);
+			}
+			return null;
+		}
+		
+		private void hang(float secs) {
+			try {
+				Thread.sleep(Math.round(secs * 1000));
+			} catch (InterruptedException e) {
+				// ignore
+			}
+		}
+	}
+	
+	public static class ForCMDHandler extends CMDHandler {
+		public ForCMDHandler() {
+			super("F", "FOR");
+		}
+		
+		@Override
+		public Object handle(M4JInterpreter2 interp, CmdContext ctx) {
+			// F i=1:1:10 style expression
+			ArgsContext args = ctx.args();
+			int size = args.children.size();
+			if (size < 3 || !args.getChild(1).getText().equals(":")) {
+				throw interp.throwError(ctx,"FOR command expected 3+ tokens in command list");
+			}
+			
+			// execute the first expression as an assignment operator, get the loop variable reference
+			MVar loopVar = (MVar) SetCMDHandler.CMD_S(interp, args.expr(0));
+			MVal inc = MVal.valueOf(interp.visit(args.expr(1)));
+			MVal limit = (args.children.size() >= 5) ? MVal.valueOf(interp.visit(args.expr(2))) : null;
+			boolean countDown = inc.apply(BinaryOp.LTE, MVal.valueOf(-1)).isTruthy();
+
+			// get the parent line and determine the location of this for command
+			int cmdIdx = -1;
+			List<CmdContext> cmds = ((LineContext) ctx.getParent()).cmd();
+			for (int i=0; i < cmds.size(); i++) {
+				if (cmds.get(i) == ctx) {
+					cmdIdx = i; break;
+				}
+			}
+			if (cmdIdx < 0) throw new IllegalArgumentException("Unable to determine where the FOR command is in the list");
+
+			// TODO: need a pre-check?  this will always run once.
+			for(;;) {
+				Object ret = null;
+				// execute subsequent commands on line
+				for (int i=cmdIdx+1; i < cmds.size(); i++) {
+					ret = interp.visitCmd(cmds.get(i));
+					
+					// TODO: Redundant with M4JInterpreter.processCmds()
+					if (ret == null) {
+						// ???
+					} else if (ret == MFlowControl.QUIT || ret instanceof QuitReturn) {
+						// quit within loop indicate terminate loop
+						break;
+					} else if (ret == MFlowControl.FALSE) {
+						// returned false, stop processing this line, but continue loop
+						break;
+					}
+				}
+				
+				if (ret == MFlowControl.QUIT || ret instanceof QuitReturn) {
+					break;
+				}
+
+				// do the increment
+				MUMPS.$INCREMENT(loopVar, inc);
+				
+				// if the increment is equal to the limit, break
+				if (countDown && limit != null && MVal.valueOf(loopVar).apply(BinaryOp.LT, limit).isTruthy()) {
+					break;
+				} else if (!countDown && limit != null && MVal.valueOf(loopVar).apply(BinaryOp.GT, limit).isTruthy()) {
+					break;
+				}
+			}
+
+			// loop has been completely executed, stop processing further commands on line (like IF statement)
+			return MFlowControl.FALSE;
+		}
+	}
 
 }
