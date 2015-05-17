@@ -41,12 +41,16 @@ expr
 	| expr (MATCH | NOT_MATCH) exprPatternItem+ #ExprMatch
 	| LP expr RP #ExprGroup
 	| LP expr (COMMA expr)* RP #ExprList // for S (A,B,C)=1 style commands
-	| tag=ID (OPER n=NUM_LITERAL)? ('^' routine=ID)?  #ExprLineLabel // line label reference for $T(TAG+N^ROUTINE), GO F1: command, etc.
-	| tag=ID OPER LP expr RP ('^' routine=ID)? #ExprLineLabel2
+	| lineRef cmdPostCond?    #ExprLineRef
 ; 
 
 literal : STR_LITERAL | NUM_LITERAL;
 format: OPER* '?' PAT_INT | OPER+; // format control characters for READ, WRITE
+
+lineRef
+	: tag=ID (OPER n=NUM_LITERAL)? ('^' routine=ID)?  // line label reference for $T(TAG+N^ROUTINE), GO F1: command, etc.
+	| tag=ID OPER LP expr RP ('^' routine=ID)? 
+;
 
 func: flags='$' name=ID LP args? RP;
 

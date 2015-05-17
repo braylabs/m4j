@@ -6,7 +6,7 @@ An attempt at making a MUMPS runtime environment for the java virtual machine (J
 - Compiler that can compile M code to JVM byte-code (very early, only 1-2 commands implemented)
 - Globals API/proxy
   - Plain java persistence (Using H2's MVStore storage engine)
-  - Connecters back to InterSystems Cache (Using cache extreem drivers)
+  - Connecters back to InterSystems Cache (Using cache extreme drivers)
 - Runtime environment (~40% of the system commands/functions implemented)
 - Shell/console tool including:
   - command history 
@@ -15,8 +15,8 @@ An attempt at making a MUMPS runtime environment for the java virtual machine (J
 
 ## About
 - Created by [Brian Bray](https://www.linkedin.com/in/bbray), President/Founder of BrayLabs
-- Initally created as an excercise in learning M while working for the VA on the Health Mangement Platform
-- This is an enhanced version of what was originlly published as open source software by the VA to [OSEHRA](http://hdl.handle.net/10909/11049), 
+- Initially created as an exercise in learning M while working for the VA on the Health Management Platform (HMP).  The original project, not the current eHMP project.
+- This is an enhanced version of what was originally published as open source software by the VA to [OSEHRA](http://hdl.handle.net/10909/11049), 
 - Questions/comments can be directed to me via email, or I also still lurk on the [Hardhats](https://groups.google.com/forum/#!forum/hardhats) list a bit.
 
 ## Prerequisites
@@ -28,7 +28,7 @@ An attempt at making a MUMPS runtime environment for the java virtual machine (J
 ## Known issues
 - Currently will fail to fetch Cache dependencies, might need to comment them out or install into local maven repo manually
 - `CacheGlobalStore` doesn't work on OSX, the cache driver causes core dumps
-- There are still some quirkly M code that the ANTLR grammer cannot handle
+- There is still some quirky M code that the ANTLR grammar cannot handle
 - Not all the commands/system functions are implemented nor are they fully implemented and completely compatible
 - Some forms of indirection work, others do not
 

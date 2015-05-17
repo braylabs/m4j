@@ -48,9 +48,7 @@ public class MUMPS {
 	$Translate()
 	
 	Not sure if these can be done yet:
-	$Select()
 	$STack()
-	$Text()
 	$View()
 	*/
 	
@@ -301,6 +299,7 @@ public class MUMPS {
 	@M4JEntryPoint(name={"$E","$EXTRACT"})
 	public static final String $EXTRACT(String str, int start, int end) {
 		if (str == null || start <= 0 || end < start) return "";
+		
 		return str.substring(start-1, (end >= str.length()) ? str.length() : end);
 	}
 	

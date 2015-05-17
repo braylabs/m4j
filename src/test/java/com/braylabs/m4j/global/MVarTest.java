@@ -12,11 +12,6 @@ import org.junit.Test;
 
 import com.braylabs.m4j.global.MVar;
 import com.braylabs.m4j.global.MVar.MVarKey;
-import com.intersys.globals.Connection;
-import com.intersys.globals.ConnectionContext;
-import com.intersys.jdbc.CacheConnection;
-import com.intersys.xep.EventPersister;
-import com.intersys.xep.PersisterFactory;
 
 public class MVarTest {
 	
