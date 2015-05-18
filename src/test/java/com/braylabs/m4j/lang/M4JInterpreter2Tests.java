@@ -97,7 +97,6 @@ public class M4JInterpreter2Tests {
 		parser = new MUMPS2Parser(tokens);
 		proc = new TestM4JProcess();
 		interp = spy(new M4JInterpreter2(proc));
-//		Mockito.doCallRealMethod().when(interp).visitExprBinary(any(ExprBinaryContext.class));
 	}
 	
 	@Test
@@ -432,7 +431,10 @@ public class M4JInterpreter2Tests {
 	
 	@Test
 	public void testCMDGo() {
-		// TODO: Implement me
+		// TODO: how to test w/o specifying routine name?
+		eval("G UP^XLFSTR:1=1,LOW^XLFSTR:1=2,UP^XLFSTR");
+		verify(interp).visitLine(any(LineContext.class));
+		verify(interp).visitCmd(any(CmdContext.class));
 	}
 	
 	@Test
@@ -684,7 +686,6 @@ public class M4JInterpreter2Tests {
 	@Test
 	public void testRemainingLexerParserIssues() {
 		// command syntax/indirection parse errors
-		eval("G F1:%G=1,F2:%G=2,F3:%G=3,F1");
 		eval("W $T(@TAG+I^@RTN)");
 		// TODO: VPRJT.int: Line tags can start with digits!?!
 		eval("D @(ROUTINE_\"(.HTTPRSP,.HTTPARGS)\")");

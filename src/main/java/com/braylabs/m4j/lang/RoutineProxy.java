@@ -80,7 +80,7 @@ public interface RoutineProxy {
 
 		@Override
 		public Object call(String entrypoint, M4JProcess proc, Object... params) throws Exception {
-			return proc.getInterpreter2().evalRoutine(this.fileContext, entrypoint, params);
+			return proc.getInterpreter().evalRoutine(this.fileContext, entrypoint, params);
 		}
 
 		@Override

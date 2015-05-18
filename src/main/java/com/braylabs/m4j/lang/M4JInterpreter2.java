@@ -29,8 +29,7 @@ import com.braylabs.m4j.lang.MUMPS2Parser.ExprGroupContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprIndrExprContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprIndrRefContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprIndrVarContext;
-import com.braylabs.m4j.lang.MUMPS2Parser.ExprLineLabel2Context;
-import com.braylabs.m4j.lang.MUMPS2Parser.ExprLineLabelContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.ExprLineRefContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprListContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprLiteralContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.ExprMatchContext;
@@ -41,6 +40,7 @@ import com.braylabs.m4j.lang.MUMPS2Parser.ExprVarContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.FileContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.FuncContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.LineContext;
+import com.braylabs.m4j.lang.MUMPS2Parser.LineRefContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.LinesContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.LiteralContext;
 import com.braylabs.m4j.lang.MUMPS2Parser.RefContext;
@@ -82,7 +82,7 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		commands.putAll(new $SCMDHandler().getCollection());
 		commands.putAll(new ForCMDHandler().getCollection());
 		commands.putAll(new HaltHangCMDHandler().getCollection());
-		
+		commands.putAll(new GoCMDHandler().getCollection());
 	}
 	
 	@Override
@@ -119,13 +119,8 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		String name = ctx.ID().getText().toUpperCase();
 		
 		// if there is a PCE, evaluate it.  Skip the command execution if its false.
-		CmdPostCondContext pce = ctx.cmdPostCond();
-		if (pce != null) {
-			MVal ret = MVal.valueOf(visit(pce.expr()));
-			if (ret != null && !ret.isTruthy()) {
-				// cancel
-				return null;
-			}
+		if (!visitCmdPostCond(ctx.cmdPostCond())) {
+			return null;
 		}
 		
 		CMDHandler cmd = commands.get(name);
@@ -138,6 +133,17 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		} catch (Throwable t) {
 			throw throwError(ctx, "Error processing command: " + name, t, true);
 		}
+	}
+
+	/** returns the result of evaluating the post conditional expression, true if its null */
+	@Override
+	public Boolean visitCmdPostCond(CmdPostCondContext pce) {
+		if (pce == null) return true; // doesn't exist, so return true
+		MVal ret = MVal.valueOf(visit(pce.expr()));
+		if (ret != null && !ret.isTruthy()) {
+			return false;
+		}
+		return true;
 	}
 	
 	/* Consolidated logic for processing and aborting a list of commands */
@@ -179,10 +185,10 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		
 		// WRITE expression such as W !?10,"HI" will invoke UnaryExpr but ! is a Binary operator
 		// so this is a hack to get it to work.
+		// TODO: Is this still necessary? Might be handled better now by visitExprFormat()?
 		if (op == null && ctx.OPER().getText().equals("!")) {
 			return MVal.valueOf("\n").apply(BinaryOp.CONCAT, val);
 		}
-		
 		
 		return val.apply(op);
 	}
@@ -268,7 +274,7 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 	
 	@Override
 	public MVal visitExprIndrExpr(ExprIndrExprContext ctx) {
-		System.out.println("VISITEXPTRINDREXPR");
+		// TODO: implement me
 		return null;
 	}
 		
@@ -302,6 +308,14 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 	}
 	
 	@Override
+	public Object visitExprLineRef(ExprLineRefContext ctx) {
+		if (!visitCmdPostCond(ctx.cmdPostCond())) {
+			return null;
+		}
+		return visitLineRef(ctx.lineRef());
+	}
+	
+	@Override
 	public Object visitFunc(FuncContext ctx) {
 		String name = ctx.name.getText();
 
@@ -316,6 +330,7 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		}
 		
 		// resolve args (if any)
+		// TODO: Convert this to a call to vistArgs()?
 		Object[] args = new Object[0];
 		if (ctx.args() != null) {
 			args = new Object[ctx.args().expr().size()];
@@ -334,7 +349,6 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 			throw new MUMPSInterpretError(ctx, "Error calling: $"+name, e, true);
 			
 		}
-
 	}
 	
 	@Override
@@ -375,11 +389,63 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 	}
 	
 	@Override
+	public ResolvedLineRef visitLineRef(LineRefContext ctx) {
+		ResolvedLineRef ret = new ResolvedLineRef();
+		
+		// "TAG+N^ROUTINE" style
+		ret.tag = (ctx.tag == null) ? null : ctx.tag.getText();
+		ret.routine = (ctx.routine == null) ? null : ctx.routine.getText();
+		ret.offset = (ctx.n == null) ? 0 : Integer.parseInt(ctx.n.getText());
+		
+		// offset could be an expression instead of n
+		if (ctx.n == null && ctx.expr() != null) {
+			ret.offset = MVal.valueOf(visit(ctx.expr())).toNumber().intValue();
+		}
+		
+		// missing routine indicates current routine
+		if (ret.routine == null) {
+			MVar rvar = proc.getLocal("$ROUTINE");
+			ret.routine = rvar.valStr();
+			if (ret.routine == null) {
+				throw throwError(ctx, "Routine name not specified and no current routine context exists to fall back on");
+			}
+		}
+		
+		return ret;
+	}
+	
+	/** TODO: not sure what I think about this technique, similar to QuitReturn, but feels weird */
+	static class ResolvedLineRef {
+		String tag = null;
+		String routine = null;
+		int offset = -1;
+		
+		@Override
+		public String toString() {
+			StringBuilder sb = new StringBuilder();
+			if (tag != null) { 
+				sb.append(tag); 
+				if (offset > 0) {
+					sb.append("+");
+					sb.append(offset);
+				}
+				sb.append("^");
+			}
+			sb.append(routine);
+			return sb.toString();
+		}
+	}
+	
+	@Override
 	public Object visitRef(RefContext ctx) {
 		String ep = ctx.ep.getText();
 		String routine = (ctx.routine == null) ? "SYS" : ctx.routine.getText();
-		MVar curRoutine = proc.getLocal("$ROUTINE");
-			
+		return invokeRoutine(ctx, routine, ep, 0);
+	}
+	
+	/** shared code to invoke routine common to GOTO, DO and RefContext */
+	private Object invokeRoutine(ParserRuleContext ctx, String routine, String tag, int offset) {
+		MVar rvar = proc.getLocal("$ROUTINE");
 		RoutineProxy proxy = proc.getRoutine(routine);
 		if (proxy == null) {
 			throw new MUMPSInterpretError(ctx, "Routine is undefined: " + routine);
@@ -387,23 +453,18 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 			
 		// track currently executing routine as special var for now
 		// then invoke routine, return result
-		MVar rvar = proc.getLocal("$ROUTINE");
 		String oldVal = rvar.valStr();
 		try {
-			
-			MVal[] args = (ctx.args() == null) ? null : new MVal[ctx.args().expr().size()];
-			for (int i=0; i < args.length; i++) {
-				args[i] = MVal.valueOf(visit(ctx.args().expr(i)));
-			}
-
+			MVal[] args = visitArgs(ctx.getChild(ArgsContext.class, 0));
 			rvar.set(proxy.getName());
-			return proxy.call(ep, proc, args);
+			return proxy.call(tag, proc, args);
 		} catch (Exception e) {
-			throw new MUMPSInterpretError(ctx, "Error invoking: " + ep + "^" + routine, e, true).setRoutine(oldVal);
+			throw new MUMPSInterpretError(ctx, "Error invoking: " + tag + "^" + routine, e, true).setRoutine(oldVal);
 		} finally {
 			// restore old value
 			if (oldVal != null) rvar.set(oldVal);
 		}
+		
 	}
 	
 	@Override
@@ -475,36 +536,16 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		return MFlowControl.ERROR;
 	}
 	
-	protected void handleError(MUMPSInterpretError err) {
-		// TODO: Implement this
-		throw err;
-	}
-	
-	protected MUMPSInterpretError throwError(ParserRuleContext ctx, String msg) {
-		MUMPSInterpretError ret = new MUMPSInterpretError(ctx, msg);
-		throw ret;
-	}
-	
-	protected MUMPSInterpretError throwError(ParserRuleContext ctx, String msg, Throwable t) {
-		MUMPSInterpretError ret = new MUMPSInterpretError(ctx, msg, t, false);
-		throw ret;
-	}
-
-	protected MUMPSInterpretError throwError(ParserRuleContext ctx, String msg, Throwable t, boolean suppress) {
-		MUMPSInterpretError ret = new MUMPSInterpretError(ctx, msg, t, suppress);
-		throw ret;
-	}
-	
 	public Object evalRoutine(FileContext filectx, String entrypoint, Object... args) {
 		Object ret = null;
-
+	
 		// loop through each line until we find our target entrypoint, then process 
 		// subsequent lines until we find the target a quit
 		// TODO: This seems horribly inefficient
 		boolean exec = (entrypoint == null); // if no entrypoint specified, start executing immediately at the top
 		for (LineContext line : filectx.line()) {
 			if (exec) {
-
+	
 				visitLine(line);
 				
 			} else if (line.entryPoint() != null && line.entryPoint().ID().getText().equals(entrypoint)) {
@@ -540,6 +581,26 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		}
 		
 		return ret;
+	}
+
+	protected void handleError(MUMPSInterpretError err) {
+		// TODO: Implement this
+		throw err;
+	}
+	
+	protected MUMPSInterpretError throwError(ParserRuleContext ctx, String msg) {
+		MUMPSInterpretError ret = new MUMPSInterpretError(ctx, msg);
+		throw ret;
+	}
+	
+	protected MUMPSInterpretError throwError(ParserRuleContext ctx, String msg, Throwable t) {
+		MUMPSInterpretError ret = new MUMPSInterpretError(ctx, msg, t, false);
+		throw ret;
+	}
+
+	protected MUMPSInterpretError throwError(ParserRuleContext ctx, String msg, Throwable t, boolean suppress) {
+		MUMPSInterpretError ret = new MUMPSInterpretError(ctx, msg, t, suppress);
+		throw ret;
 	}
 	
 	/**
@@ -717,6 +778,32 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 		}
 	}
 	
+	/**
+	 * TODO: Argumentless GOTO command not implemented
+	 * TODO: You can specify a $CASE function as a GOTO command argument.
+	 * TODO: Lots of context switching issues need to be addressed
+	 * TODO: GOTO within loop?
+	 * TODO: Not sure what the behavior should be for multiple goarguments should be? (run them all? just the first?)
+	 */
+	public static class GoCMDHandler extends CMDHandler {
+		public GoCMDHandler() {
+			super("G", "GOTO");
+		}
+		
+		@Override
+		public Object handle(M4JInterpreter2 interp, CmdContext ctx) {
+			for (ExprContext expr : ctx.expr()) {
+				// goto the first one that is true or lacks a PCE
+				if (expr instanceof ExprLineRefContext) {
+					LineRefContext lineref = ((ExprLineRefContext) expr).lineRef();
+					ResolvedLineRef ref = interp.visitLineRef(lineref);
+					return interp.invokeRoutine(expr, ref.routine, ref.tag, ref.offset);
+				}
+			}
+			throw interp.throwError(ctx, "Unrecognized structure of GOTO command");
+		}
+	}
+	
 	public static class DoCMDHandler extends CMDHandler {
 		public DoCMDHandler() {
 			super("D","DO");
@@ -737,10 +824,6 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 			
 			Object lineOrFileCtx = ctx.getParent().getParent();
 			int curLine = ctx.getStart().getLine();
-			
-			
-			
-			
 			
 			if (lineOrFileCtx == null || !(lineOrFileCtx instanceof FileContext)) return null; // from test cases/console?
 			
@@ -782,7 +865,8 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 			if (ctx.expr().isEmpty()) {
 				Iterator<String> itr = interp.proc.listLocals();
 				while (itr.hasNext()) {
-					interp.proc.getOutputStream().println(itr.next());
+					MVar var = interp.proc.getLocal(itr.next());
+					interp.proc.getOutputStream().println(var);
 				}
 				return null;
 			}
@@ -864,31 +948,25 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 			}
 
 			// there are several structures that could appear in the arguments
-			String tag = null, routine = null;
-			int offset = 0;
+			ResolvedLineRef ref = null;
 			ExprContext expr = ctx.args().expr(0);
-			if (expr instanceof ExprLineLabelContext) {
+			if (expr instanceof ExprLineRefContext) {
 				// "TAG+N^ROUTINE" style
-				ExprLineLabelContext label = (ExprLineLabelContext) ctx.args().expr(0);
-				tag = (label.tag == null) ? null : label.tag.getText();
-				routine = (label.routine == null) ? null : label.routine.getText();
-				offset = (label.n == null) ? 0 : Integer.parseInt(label.n.getText());
+				LineRefContext label = ((ExprLineRefContext) ctx.args().expr(0)).lineRef();
+				ref = interp.visitLineRef(label);
 			} else if (expr instanceof ExprRefContext) {
 				// "TAG^ROUTINE" style
-				RefContext ref = ((ExprRefContext) expr).ref(); 
-				tag = ref.ep.getText();
-				routine = ref.routine.getText();
-			} else if (expr instanceof ExprLineLabel2Context) {
-				ExprLineLabel2Context lineexpr = (ExprLineLabel2Context) expr;
-				tag = lineexpr.tag.getText();
-				routine = (lineexpr.routine == null) ? null : lineexpr.routine.getText();
-				offset = MVal.valueOf(interp.visit(lineexpr.expr())).toNumber().intValue();
+				RefContext exprref = ((ExprRefContext) expr).ref(); 
+				ref = new ResolvedLineRef();
+				ref.offset=0;
+				ref.tag = exprref.ep.getText();
+				ref.routine = exprref.routine.getText();
 			}
 			
-			RoutineProxy proxy = interp.proc.getRoutine(routine);
+			RoutineProxy proxy = interp.proc.getRoutine(ref.routine);
 			String line = null;
 			try {
-				line = proxy.getRoutineLine(tag, offset);
+				line = proxy.getRoutineLine(ref.tag, ref.offset);
 			} catch (IOException e) {
 				interp.throwError(ctx, "Error while looking up source line", e);
 			}
@@ -953,7 +1031,7 @@ public class M4JInterpreter2 extends MUMPS2ParserBaseVisitor<Object> {
 			// HALT or H w/o any arguments is a HALT
 			if (cmdname.equals("HALT")) {
 				return MFlowControl.HALT;
-			} else if (cmdname.equals("H") && ctx.expr() == null) {
+			} else if (cmdname.equals("H") && ctx.expr().isEmpty()) {
 				return MFlowControl.HALT;
 			}
 			

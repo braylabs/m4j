@@ -129,8 +129,7 @@ public class M4JRuntime implements Closeable{
 		private Map<String, MVar> specialVars = new HashMap<>();
 		private Map<String, Object> cache = new HashMap<>();
 		private String trace;
-		private MInterpreter interp;
-		private M4JInterpreter2 interp2;
+		private M4JInterpreter2 interp;
 		
 		public M4JProcess(M4JRuntime runtime, int ID) {
 			this.runtime = runtime;
@@ -150,18 +149,13 @@ public class M4JRuntime implements Closeable{
 			specialVars.put(lastGlobal.getName(), lastGlobal);
 			
 			// every process has its own instance of the interpreter
-			this.interp = new MInterpreter(this);
-			this.interp2 = new M4JInterpreter2(this);
+			this.interp = new M4JInterpreter2(this);
 		}
 		
-		public MInterpreter getInterpreter() {
+		public M4JInterpreter2 getInterpreter() {
 			return interp;
 		}
 		
-		public M4JInterpreter2 getInterpreter2() {
-			return interp2;
-		}
-
 		protected MVar getSpecialVar(String name) {
 			if (specialVars.containsKey(name)) {
 				return specialVars.get(name);

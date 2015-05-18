@@ -68,7 +68,7 @@ public class M4JShell {
 		// setup shell instance
 		M4JRuntime runtime = new M4JRuntime(store);
 		M4JProcess proc = new M4JProcess(runtime, 0);
-		MInterpreter interp = new MInterpreter(proc);
+		M4JInterpreter2 interp = new M4JInterpreter2(proc);
 		proc.getSpecialVar("$ROUTINE").set("<CONSOLE>");
 		interp.setDebugMode(options.hasArgument(optDebug));
 		
